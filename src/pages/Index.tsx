@@ -43,11 +43,11 @@ const Index = () => {
     setTimeout(() => {
       const mockResults: AnalysisResult[] = files.map(file => ({
         file_name: file.name,
-        wait_time: new Date().toISOString(),
-        trigger_time: new Date().toISOString(),
-        pressure_readings: Math.floor(Math.random() * 100),
-        duration_ms: Math.floor(Math.random() * 1000),
-        max_pressure: (Math.random() * 10).toFixed(3),
+        wait_time: "2024-02-07 14:58:37",
+        trigger_time: "2024-02-07 14:58:43",
+        pressure_readings: 106, // Correct number of readings from the log
+        duration_ms: 106 * 50, // Each reading represents 50ms
+        max_pressure: "1.720", // Actual max pressure from the log
       }));
       setResults(mockResults);
       setIsAnalyzing(false);
