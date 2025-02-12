@@ -39,23 +39,80 @@ const Index = () => {
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true);
-    // Simulate analysis - in a real app, this would call your Python script
-    setTimeout(() => {
-      const mockResults: AnalysisResult[] = files.map(file => ({
-        file_name: file.name,
-        wait_time: "2024-02-07 14:58:37",
-        trigger_time: "2024-02-07 14:58:43",
-        pressure_readings: 106, // Correct number of readings from the log
-        duration_ms: 106 * 50, // Each reading represents 50ms
-        max_pressure: "1.720", // Actual max pressure from the log
+    
+    try {
+      // Process each file using FileReader
+      const results = await Promise.all(files.map(async (file) => {
+        return new Promise<AnalysisResult>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            const content = e.target?.result as string;
+            // Split content into lines and process according to your Python script logic
+            const lines = content.split('\n');
+            
+            let wait_time = '';
+            let trigger_time = '';
+            let pressure_readings: number[] = [];
+            let measuring = false;
+
+            for (const line of lines) {
+              // Look for the start of pressure readings
+              if (line.includes("Waiting to trigger with sample")) {
+                measuring = true;
+                const timeMatch = line.match(/\((.*?)_CST\)/);
+                if (timeMatch) {
+                  wait_time = timeMatch[1].replace(/_/g, ' ');
+                }
+                continue;
+              }
+
+              // Look for trigger event
+              if (measuring && (line.includes("Triggered!") || line.includes("TIME TO VENT"))) {
+                const timeMatch = line.match(/\((.*?)_CST\)/);
+                if (timeMatch) {
+                  trigger_time = timeMatch[1].replace(/_/g, ' ');
+                }
+                break;
+              }
+
+              // Collect pressure readings
+              if (measuring) {
+                const pressureMatch = line.match(/(\d+\.\d+)psi/);
+                if (pressureMatch) {
+                  pressure_readings.push(parseFloat(pressureMatch[1]));
+                }
+              }
+            }
+
+            resolve({
+              file_name: file.name,
+              wait_time,
+              trigger_time,
+              pressure_readings: pressure_readings.length,
+              duration_ms: pressure_readings.length * 50, // Each reading is 50ms
+              max_pressure: pressure_readings.length > 0 ? Math.max(...pressure_readings).toFixed(3) : "0.000",
+            });
+          };
+          
+          reader.readAsText(file);
+        });
       }));
-      setResults(mockResults);
+
+      setResults(results);
       setIsAnalyzing(false);
       toast({
         title: "Analysis Complete",
         description: `Analyzed ${files.length} file(s)`,
       });
-    }, 2000);
+    } catch (error) {
+      console.error('Error analyzing files:', error);
+      setIsAnalyzing(false);
+      toast({
+        title: "Analysis Failed",
+        description: "There was an error analyzing the files",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
