@@ -40,7 +40,7 @@ serve(async (req) => {
 
     console.log('Making request to Groq API...');
     
-    const response = await fetch('https://api.groq.com/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${groqApiKey}`,
