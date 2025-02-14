@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { FileUploader } from '@/components/FileUploader';
 import { ResultsDisplay } from '@/components/ResultsDisplay';
 import { FileList } from '@/components/FileList';
+import { LogAnalysisChat } from '@/components/LogAnalysisChat';
 import { Card } from "@/components/ui/card";
 
 interface AnalysisResult {
@@ -140,9 +141,12 @@ const Index = () => {
           )}
 
           {results.length > 0 && (
-            <Card className="p-6 animate-results-appear">
-              <ResultsDisplay results={results} />
-            </Card>
+            <>
+              <Card className="p-6 animate-results-appear">
+                <ResultsDisplay results={results} />
+              </Card>
+              <LogAnalysisChat results={results} />
+            </>
           )}
         </div>
       </div>
