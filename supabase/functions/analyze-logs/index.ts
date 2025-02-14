@@ -18,7 +18,7 @@ serve(async (req) => {
   try {
     if (!groqApiKey) {
       console.error('GROQ_API_KEY is not set');
-      throw new Error('GROQ API key is not configured');
+      throw new Error('Groq API key is not configured');
     }
 
     const { question, logData } = await req.json();
