@@ -24,21 +24,32 @@ serve(async (req) => {
     const { question, logData } = await req.json();
 
     console.log('Received request with question:', question);
-    console.log('Log data sample:', JSON.stringify(logData).slice(0, 100) + '...');
+
+    // Format the log data for better readability
+    const formattedLogData = logData.map((entry: any) => {
+      return `
+File: ${entry.file_name}
+Wait Time: ${entry.wait_time}
+Trigger Time: ${entry.trigger_time}
+Pressure Readings Count: ${entry.pressure_readings}
+Duration (ms): ${entry.duration_ms}
+Max Pressure: ${entry.max_pressure}psi
+-------------------`;
+    }).join('\n');
 
     // Format the conversation for Groq
     const messages = [
       {
         role: "system",
-        content: "You are an AI assistant specialized in analyzing log data from bubble sensor measurements. You help users understand their log data by answering questions about wait times, trigger times, pressure readings, and other metrics. Be concise and precise in your answers."
+        content: "You are an AI assistant specialized in analyzing log data from bubble sensor measurements. You help users understand their log data by answering questions about wait times, trigger times, pressure readings, and other metrics. Be concise and precise in your answers, but make sure to consider all the data provided."
       },
       {
         role: "user",
-        content: `Here is the log data: ${JSON.stringify(logData)}\n\nQuestion: ${question}`
+        content: `Here is the complete log data from all uploaded files:\n\n${formattedLogData}\n\nQuestion: ${question}`
       }
     ];
 
-    console.log('Making request to Groq API...');
+    console.log('Making request to Groq API with full log data...');
     
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
