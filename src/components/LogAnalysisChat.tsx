@@ -15,6 +15,11 @@ interface LogAnalysisChatProps {
     pressure_readings: number;
     duration_ms: number;
     max_pressure: string;
+    raw_content: string;
+    settings: Record<string, string>;
+    battery_info: Record<string, string>;
+    temperatures: string[];
+    system_events: string[];
   }>;
 }
 
@@ -36,7 +41,21 @@ export const LogAnalysisChat = ({ results }: LogAnalysisChatProps) => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('analyze-logs', {
-        body: { question, logData: results },
+        body: { 
+          question,
+          logData: results.map(result => ({
+            ...result,
+            settings_summary: Object.entries(result.settings)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join('\n'),
+            battery_summary: Object.entries(result.battery_info)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join('\n'),
+            temperature_readings: result.temperatures.join(', '),
+            system_events: result.system_events.join('\n'),
+            complete_log: result.raw_content
+          }))
+        },
       });
 
       if (error) throw error;
