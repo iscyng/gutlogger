@@ -16,7 +16,15 @@ serve(async (req) => {
   }
 
   try {
+    if (!groqApiKey) {
+      console.error('GROQ_API_KEY is not set');
+      throw new Error('GROQ API key is not configured');
+    }
+
     const { question, logData } = await req.json();
+
+    console.log('Received request with question:', question);
+    console.log('Log data sample:', JSON.stringify(logData).slice(0, 100) + '...');
 
     // Format the conversation for Groq
     const messages = [
@@ -30,6 +38,8 @@ serve(async (req) => {
       }
     ];
 
+    console.log('Making request to Groq API...');
+    
     const response = await fetch('https://api.groq.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -44,23 +54,37 @@ serve(async (req) => {
       }),
     });
 
+    console.log('Groq API response status:', response.status);
+
     if (!response.ok) {
-      const error = await response.text();
-      console.error('Groq API error:', error);
-      throw new Error('Failed to get response from Groq');
+      const errorText = await response.text();
+      console.error('Groq API error response:', errorText);
+      throw new Error(`Groq API returned status ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('Successfully received Groq API response');
+
     const answer = data.choices[0].message.content;
 
     return new Response(JSON.stringify({ answer }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error in analyze-logs function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.error('Detailed error in analyze-logs function:', {
+      message: error.message,
+      stack: error.stack,
     });
+    
+    return new Response(
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack 
+      }), 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
   }
 });
