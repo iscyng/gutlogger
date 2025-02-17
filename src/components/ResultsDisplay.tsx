@@ -1,4 +1,3 @@
-
 import {
   Table,
   TableBody,
@@ -11,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useState } from 'react';
+import * as XLSX from 'xlsx';
 
 interface AnalysisResult {
   file_name: string;
@@ -29,31 +29,39 @@ interface ResultsDisplayProps {
 export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
-  const handleExportCSV = () => {
-    const csvContent = 
-      "data:text/csv;charset=utf-8," + 
-      "File Name,Wait Time,Trigger Time,Pressure Readings,Duration (ms),Max Pressure\n" +
-      results.map(r => 
-        `${r.file_name},${r.wait_time},${r.trigger_time},${r.pressure_readings},${r.duration_ms},${r.max_pressure}`
-      ).join("\n");
+  const handleExport = () => {
+    const wb = XLSX.utils.book_new();
+    
+    const summaryData = results.map(r => ({
+      'File Name': r.file_name,
+      'Wait Time': r.wait_time,
+      'Trigger Time': r.trigger_time,
+      'Pressure Readings': r.pressure_readings,
+      'Duration (ms)': r.duration_ms,
+      'Max Pressure': r.max_pressure
+    }));
+    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "analysis_results.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    results.forEach(result => {
+      const readings = getPressureReadings(result.raw_content);
+      const readingsData = readings.map(r => ({
+        'Time (ms)': r.time,
+        'Pressure (psi)': r.pressure
+      }));
+      const readingsWs = XLSX.utils.json_to_sheet(readingsData);
+      XLSX.utils.book_append_sheet(wb, readingsWs, `${result.file_name.slice(0, 28)}_Data`);
+    });
+
+    XLSX.writeFile(wb, 'bubble_sensor_analysis.xlsx');
   };
 
-  // Data for comparison chart (existing chart)
   const comparisonData = results.map(result => ({
     name: result.file_name,
     pressure: parseFloat(result.max_pressure),
     readings: result.pressure_readings,
   }));
 
-  // Parse pressure readings from raw content for the selected file
   const getPressureReadings = (rawContent: string) => {
     const lines = rawContent.split('\n');
     const readings: { time: number; pressure: number }[] = [];
@@ -66,7 +74,7 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
           startTime = 0;
         }
         readings.push({
-          time: readings.length * 50, // 50ms intervals
+          time: readings.length * 50,
           pressure: parseFloat(pressureMatch[1]),
         });
       }
@@ -87,9 +95,9 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Analysis Results</h2>
-        <Button onClick={handleExportCSV} variant="outline">
+        <Button onClick={handleExport} variant="outline">
           <Download className="mr-2 h-4 w-4" />
-          Export CSV
+          Export Excel
         </Button>
       </div>
 
