@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 
 interface AnalysisResult {
@@ -28,11 +28,11 @@ interface ResultsDisplayProps {
 }
 
 const lineColors = [
-  "hsl(var(--primary))",
-  "hsl(var(--destructive))",
-  "hsl(var(--success))",
-  "hsl(var(--warning))",
-  "hsl(var(--info))",
+  "#2563eb", // blue-600
+  "#dc2626", // red-600
+  "#16a34a", // green-600
+  "#ca8a04", // yellow-600
+  "#9333ea", // purple-600
 ];
 
 export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
@@ -75,11 +75,11 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
     const lines = rawContent.split('\n');
     const readings: { time: number; pressure: number }[] = [];
     
-    lines.forEach((line) => {
+    lines.forEach((line, index) => {
       const pressureMatch = line.match(/(\d+\.\d+)psi/);
       if (pressureMatch) {
         readings.push({
-          time: readings.length * 50,
+          time: index * 50,
           pressure: parseFloat(pressureMatch[1]),
         });
       }
@@ -98,18 +98,45 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
     setSelectedFiles(newSelection);
   };
 
-  const getSelectedFilesData = () => {
-    return Array.from(selectedFiles).map((fileName, index) => {
+  // Prepare overlay chart data
+  const overlayChartData = useMemo(() => {
+    const selectedFilesData = Array.from(selectedFiles).map((fileName, index) => {
       const fileData = results.find(r => r.file_name === fileName);
       if (!fileData) return null;
       
+      const readings = getPressureReadings(fileData.raw_content);
       return {
         fileName,
-        data: getPressureReadings(fileData.raw_content),
+        readings,
         color: lineColors[index % lineColors.length]
       };
     }).filter(Boolean);
-  };
+
+    // Find the maximum time value across all datasets
+    const maxTime = Math.max(
+      ...selectedFilesData.map(data => 
+        Math.max(...data!.readings.map(r => r.time))
+      )
+    );
+
+    // Create time points array
+    const timePoints = Array.from(
+      { length: Math.floor(maxTime / 50) + 1 },
+      (_, i) => i * 50
+    );
+
+    // Create the combined dataset
+    return timePoints.map(time => {
+      const point: { [key: string]: number } = { time };
+      selectedFilesData.forEach(data => {
+        const reading = data!.readings.find(r => r.time === time);
+        if (reading) {
+          point[data!.fileName] = reading.pressure;
+        }
+      });
+      return point;
+    });
+  }, [selectedFiles, results]);
 
   return (
     <div className="space-y-6">
@@ -132,7 +159,7 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
             <Line 
               type="monotone" 
               dataKey="pressure" 
-              stroke="hsl(var(--primary))" 
+              stroke={lineColors[0]}
               activeDot={{ r: 8 }} 
             />
           </LineChart>
@@ -143,32 +170,29 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
         <div className="h-[400px] mb-8">
           <h3 className="text-md font-medium mb-2">Overlaid Pressure Readings</h3>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart>
+            <LineChart data={overlayChartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
                 dataKey="time"
                 type="number"
                 label={{ value: 'Time (ms)', position: 'insideBottom', offset: -5 }}
-                domain={['dataMin', 'dataMax']}
               />
               <YAxis 
                 label={{ value: 'Pressure (psi)', angle: -90, position: 'insideLeft' }}
               />
               <Tooltip 
                 labelFormatter={(value) => `Time: ${value}ms`}
-                formatter={(value, name) => [`${Number(value).toFixed(3)} psi`, name]}
               />
               <Legend />
-              {getSelectedFilesData().map((fileData) => (
+              {Array.from(selectedFiles).map((fileName, index) => (
                 <Line
-                  key={fileData!.fileName}
-                  data={fileData!.data}
+                  key={fileName}
                   type="monotone"
-                  dataKey="pressure"
-                  name={fileData!.fileName}
-                  stroke={fileData!.color}
+                  dataKey={fileName}
+                  name={fileName}
+                  stroke={lineColors[index % lineColors.length]}
                   dot={false}
-                  isAnimationActive={false}
+                  connectNulls
                 />
               ))}
             </LineChart>
