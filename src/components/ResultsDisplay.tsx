@@ -75,14 +75,10 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
   const getPressureReadings = (rawContent: string) => {
     const lines = rawContent.split('\n');
     const readings: { time: number; pressure: number }[] = [];
-    let startTime: number | null = null;
     
     lines.forEach((line) => {
       const pressureMatch = line.match(/(\d+\.\d+)psi/);
       if (pressureMatch) {
-        if (startTime === null) {
-          startTime = 0;
-        }
         readings.push({
           time: readings.length * 50,
           pressure: parseFloat(pressureMatch[1]),
@@ -103,7 +99,7 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
     setSelectedFiles(newSelection);
   };
 
-  // Get all pressure readings for selected files
+  // Create a combined dataset for the overlay chart
   const selectedFilesData = Array.from(selectedFiles).map((fileName, index) => {
     const fileData = results.find(r => r.file_name === fileName);
     if (!fileData) return null;
@@ -115,6 +111,24 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
       color: lineColors[index % lineColors.length]
     };
   }).filter(Boolean);
+
+  // Prepare the data for Recharts
+  const overlayChartData: { time: number; [key: string]: number | string }[] = [];
+  
+  // Find the maximum time value across all datasets
+  const maxTime = Math.max(...selectedFilesData.map(fileData => 
+    Math.max(...fileData!.readings.map(r => r.time))
+  ));
+
+  // Create a unified time series
+  for (let time = 0; time <= maxTime; time += 50) {
+    const dataPoint: { time: number; [key: string]: number } = { time };
+    selectedFilesData.forEach(fileData => {
+      const reading = fileData!.readings.find(r => r.time === time);
+      dataPoint[fileData!.fileName] = reading ? reading.pressure : null;
+    });
+    overlayChartData.push(dataPoint);
+  }
 
   return (
     <div className="space-y-6">
@@ -148,7 +162,7 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
         <div className="h-[400px] mb-8">
           <h3 className="text-md font-medium mb-2">Overlaid Pressure Readings</h3>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart>
+            <LineChart data={overlayChartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
                 dataKey="time"
@@ -163,13 +177,13 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
               <Legend />
               {selectedFilesData.map((fileData, index) => (
                 <Line
-                  key={fileData?.fileName}
-                  data={fileData?.readings}
+                  key={fileData!.fileName}
                   type="monotone"
-                  dataKey="pressure"
-                  name={fileData?.fileName}
-                  stroke={fileData?.color}
+                  dataKey={fileData!.fileName}
+                  name={fileData!.fileName}
+                  stroke={fileData!.color}
                   dot={false}
+                  connectNulls
                 />
               ))}
             </LineChart>
