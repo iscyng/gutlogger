@@ -1,3 +1,4 @@
+
 import {
   Table,
   TableBody,
@@ -97,20 +98,18 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
     setSelectedFiles(newSelection);
   };
 
-  const selectedFilesData = Array.from(selectedFiles).map((fileName, index) => {
-    const fileData = results.find(r => r.file_name === fileName);
-    if (!fileData) return null;
-    
-    const readings = getPressureReadings(fileData.raw_content);
-    return {
-      fileName,
-      readings: readings.map(r => ({
-        ...r,
-        name: fileName,
-      })),
-      color: lineColors[index % lineColors.length]
-    };
-  }).filter(Boolean);
+  const getSelectedFilesData = () => {
+    return Array.from(selectedFiles).map((fileName, index) => {
+      const fileData = results.find(r => r.file_name === fileName);
+      if (!fileData) return null;
+      
+      return {
+        fileName,
+        data: getPressureReadings(fileData.raw_content),
+        color: lineColors[index % lineColors.length]
+      };
+    }).filter(Boolean);
+  };
 
   return (
     <div className="space-y-6">
@@ -150,28 +149,26 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
                 dataKey="time"
                 type="number"
                 label={{ value: 'Time (ms)', position: 'insideBottom', offset: -5 }}
-                domain={[0, 'dataMax']}
+                domain={['dataMin', 'dataMax']}
               />
               <YAxis 
                 label={{ value: 'Pressure (psi)', angle: -90, position: 'insideLeft' }}
               />
               <Tooltip 
                 labelFormatter={(value) => `Time: ${value}ms`}
-                formatter={(value, name) => [
-                  `${Number(value).toFixed(3)} psi`,
-                  name as string
-                ]}
+                formatter={(value, name) => [`${Number(value).toFixed(3)} psi`, name]}
               />
               <Legend />
-              {selectedFilesData.map((fileData) => (
+              {getSelectedFilesData().map((fileData) => (
                 <Line
                   key={fileData!.fileName}
-                  data={fileData!.readings}
+                  data={fileData!.data}
                   type="monotone"
                   dataKey="pressure"
                   name={fileData!.fileName}
                   stroke={fileData!.color}
                   dot={false}
+                  isAnimationActive={false}
                 />
               ))}
             </LineChart>
