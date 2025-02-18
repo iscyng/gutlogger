@@ -1,3 +1,4 @@
+
 import {
   Table,
   TableBody,
@@ -8,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useState } from 'react';
 import * as XLSX from 'xlsx';
 
@@ -26,8 +27,17 @@ interface ResultsDisplayProps {
   results: AnalysisResult[];
 }
 
+// Array of colors for different lines
+const lineColors = [
+  "hsl(var(--primary))",
+  "hsl(var(--destructive))",
+  "hsl(var(--success))",
+  "hsl(var(--warning))",
+  "hsl(var(--info))",
+];
+
 export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
 
   const handleExport = () => {
     const wb = XLSX.utils.book_new();
@@ -83,13 +93,28 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
     return readings;
   };
 
-  const selectedFileData = selectedFile 
-    ? results.find(r => r.file_name === selectedFile)
-    : null;
+  const toggleFileSelection = (fileName: string) => {
+    const newSelection = new Set(selectedFiles);
+    if (newSelection.has(fileName)) {
+      newSelection.delete(fileName);
+    } else {
+      newSelection.add(fileName);
+    }
+    setSelectedFiles(newSelection);
+  };
 
-  const pressureReadings = selectedFileData 
-    ? getPressureReadings(selectedFileData.raw_content)
-    : [];
+  // Get all pressure readings for selected files
+  const selectedFilesData = Array.from(selectedFiles).map((fileName, index) => {
+    const fileData = results.find(r => r.file_name === fileName);
+    if (!fileData) return null;
+    
+    const readings = getPressureReadings(fileData.raw_content);
+    return {
+      fileName,
+      readings,
+      color: lineColors[index % lineColors.length]
+    };
+  }).filter(Boolean);
 
   return (
     <div className="space-y-6">
@@ -119,26 +144,34 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
         </ResponsiveContainer>
       </div>
 
-      {selectedFile && pressureReadings.length > 0 && (
-        <div className="h-[300px] mb-8">
-          <h3 className="text-md font-medium mb-2">Pressure Readings for {selectedFile}</h3>
+      {selectedFiles.size > 0 && (
+        <div className="h-[400px] mb-8">
+          <h3 className="text-md font-medium mb-2">Overlaid Pressure Readings</h3>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={pressureReadings}>
+            <LineChart>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
-                dataKey="time" 
+                dataKey="time"
+                type="number"
                 label={{ value: 'Time (ms)', position: 'insideBottom', offset: -5 }}
+                domain={[0, 'dataMax']}
               />
               <YAxis 
                 label={{ value: 'Pressure (psi)', angle: -90, position: 'insideLeft' }}
               />
               <Tooltip />
-              <Line 
-                type="monotone" 
-                dataKey="pressure" 
-                stroke="hsl(var(--primary))" 
-                dot={false}
-              />
+              <Legend />
+              {selectedFilesData.map((fileData, index) => (
+                <Line
+                  key={fileData?.fileName}
+                  data={fileData?.readings}
+                  type="monotone"
+                  dataKey="pressure"
+                  name={fileData?.fileName}
+                  stroke={fileData?.color}
+                  dot={false}
+                />
+              ))}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -161,7 +194,7 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
             {results.map((result) => (
               <TableRow 
                 key={result.file_name}
-                className={selectedFile === result.file_name ? "bg-muted/50" : ""}
+                className={selectedFiles.has(result.file_name) ? "bg-muted/50" : ""}
               >
                 <TableCell>{result.file_name}</TableCell>
                 <TableCell>{result.wait_time}</TableCell>
@@ -173,9 +206,9 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setSelectedFile(result.file_name === selectedFile ? null : result.file_name)}
+                    onClick={() => toggleFileSelection(result.file_name)}
                   >
-                    {result.file_name === selectedFile ? "Hide Details" : "Show Details"}
+                    {selectedFiles.has(result.file_name) ? "Hide Graph" : "Show Graph"}
                   </Button>
                 </TableCell>
               </TableRow>
