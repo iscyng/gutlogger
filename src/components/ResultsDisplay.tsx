@@ -74,12 +74,27 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
   const getPressureReadings = (rawContent: string) => {
     const lines = rawContent.split('\n');
     const readings: { time: number; pressure: number }[] = [];
+    let firstPressureIndex = -1;
     
+    // First find the first actual pressure reading (where pressure > 0)
+    lines.forEach((line, index) => {
+      if (firstPressureIndex === -1) {
+        const pressureMatch = line.match(/(\d+\.\d+)psi/);
+        if (pressureMatch && parseFloat(pressureMatch[1]) > 0) {
+          firstPressureIndex = index;
+        }
+      }
+    });
+
+    // If no pressure readings found, return empty array
+    if (firstPressureIndex === -1) return readings;
+
+    // Now collect all readings with normalized time
     lines.forEach((line, index) => {
       const pressureMatch = line.match(/(\d+\.\d+)psi/);
       if (pressureMatch) {
         readings.push({
-          time: index * 50,
+          time: (index - firstPressureIndex) * 50, // Normalize time relative to first pressure reading
           pressure: parseFloat(pressureMatch[1]),
         });
       }
@@ -176,6 +191,7 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
                 dataKey="time"
                 type="number"
                 label={{ value: 'Time (ms)', position: 'insideBottom', offset: -5 }}
+                domain={[0, 'auto']}  // Force start from 0
               />
               <YAxis 
                 label={{ value: 'Pressure (psi)', angle: -90, position: 'insideLeft' }}
