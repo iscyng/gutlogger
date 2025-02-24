@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { saveUnitSelection, getUnitSelection } from '@/stores/unitSelections';
+import { useToast } from "@/hooks/use-toast";
 
 interface AnalysisResult {
   file_name: string;
@@ -47,22 +48,54 @@ const UNIT_OPTIONS = Array.from({ length: 17 }, (_, i) => `Unit ${i + 1}`);
 export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [unitSelections, setUnitSelections] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Load saved unit selections
-    const selections: Record<string, string> = {};
-    results.forEach(result => {
-      const savedUnit = getUnitSelection(result.file_name);
-      if (savedUnit) {
-        selections[result.file_name] = savedUnit;
+    const loadUnitSelections = async () => {
+      setIsLoading(true);
+      try {
+        const selections: Record<string, string> = {};
+        await Promise.all(
+          results.map(async (result) => {
+            const savedUnit = await getUnitSelection(result.file_name);
+            if (savedUnit) {
+              selections[result.file_name] = savedUnit;
+            }
+          })
+        );
+        setUnitSelections(selections);
+      } catch (error) {
+        console.error('Error loading unit selections:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load unit selections",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
-    });
-    setUnitSelections(selections);
-  }, [results]);
+    };
 
-  const handleUnitChange = (fileName: string, unit: string) => {
-    setUnitSelections(prev => ({ ...prev, [fileName]: unit }));
-    saveUnitSelection(fileName, unit);
+    loadUnitSelections();
+  }, [results, toast]);
+
+  const handleUnitChange = async (fileName: string, unit: string) => {
+    try {
+      await saveUnitSelection(fileName, unit);
+      setUnitSelections(prev => ({ ...prev, [fileName]: unit }));
+      toast({
+        title: "Success",
+        description: "Unit selection saved",
+      });
+    } catch (error) {
+      console.error('Error saving unit selection:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save unit selection",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleExport = () => {
@@ -265,6 +298,7 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
                   <Select
                     value={unitSelections[result.file_name] || ''}
                     onValueChange={(value) => handleUnitChange(result.file_name, value)}
+                    disabled={isLoading}
                   >
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Select unit" />

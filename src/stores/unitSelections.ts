@@ -1,35 +1,58 @@
 
-const STORAGE_KEY = 'unit-selections';
+import { supabase } from "@/integrations/supabase/client";
 
 export interface UnitSelection {
   fileName: string;
   unit: string;
 }
 
-export const saveUnitSelection = (fileName: string, unit: string) => {
-  const existingData = localStorage.getItem(STORAGE_KEY);
-  const selections: UnitSelection[] = existingData ? JSON.parse(existingData) : [];
+export const saveUnitSelection = async (fileName: string, unit: string): Promise<void> => {
+  const { error } = await supabase
+    .from('unit_selections')
+    .upsert(
+      { 
+        file_name: fileName, 
+        unit,
+        updated_at: new Date().toISOString()
+      },
+      {
+        onConflict: 'file_name'
+      }
+    );
   
-  const existingIndex = selections.findIndex(s => s.fileName === fileName);
-  if (existingIndex >= 0) {
-    selections[existingIndex].unit = unit;
-  } else {
-    selections.push({ fileName, unit });
+  if (error) {
+    console.error('Error saving unit selection:', error);
+    throw error;
+  }
+};
+
+export const getUnitSelection = async (fileName: string): Promise<string> => {
+  const { data, error } = await supabase
+    .from('unit_selections')
+    .select('unit')
+    .eq('file_name', fileName)
+    .single();
+  
+  if (error) {
+    console.error('Error getting unit selection:', error);
+    return '';
   }
   
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(selections));
+  return data?.unit || '';
 };
 
-export const getUnitSelection = (fileName: string): string => {
-  const existingData = localStorage.getItem(STORAGE_KEY);
-  if (!existingData) return '';
+export const getAllUnitSelections = async (): Promise<UnitSelection[]> => {
+  const { data, error } = await supabase
+    .from('unit_selections')
+    .select('file_name, unit');
   
-  const selections: UnitSelection[] = JSON.parse(existingData);
-  const selection = selections.find(s => s.fileName === fileName);
-  return selection?.unit || '';
-};
-
-export const getAllUnitSelections = (): UnitSelection[] => {
-  const existingData = localStorage.getItem(STORAGE_KEY);
-  return existingData ? JSON.parse(existingData) : [];
+  if (error) {
+    console.error('Error getting all unit selections:', error);
+    return [];
+  }
+  
+  return data.map(item => ({
+    fileName: item.file_name,
+    unit: item.unit
+  }));
 };
