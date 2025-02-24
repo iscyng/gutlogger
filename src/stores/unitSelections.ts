@@ -31,7 +31,7 @@ export const getUnitSelection = async (fileName: string): Promise<string> => {
     .from('unit_selections')
     .select('unit')
     .eq('file_name', fileName)
-    .single();
+    .maybeSingle();
   
   if (error) {
     console.error('Error getting unit selection:', error);
@@ -51,7 +51,7 @@ export const getAllUnitSelections = async (): Promise<UnitSelection[]> => {
     return [];
   }
   
-  return data.map(item => ({
+  return (data || []).map(item => ({
     fileName: item.file_name,
     unit: item.unit
   }));
