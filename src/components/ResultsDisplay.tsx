@@ -1,4 +1,3 @@
-
 import {
   Table,
   TableBody,
@@ -10,8 +9,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { saveUnitSelection, getUnitSelection } from '@/stores/unitSelections';
 
 interface AnalysisResult {
   file_name: string;
@@ -35,16 +42,35 @@ const lineColors = [
   "#9333ea", // purple-600
 ];
 
+const UNIT_OPTIONS = Array.from({ length: 17 }, (_, i) => `Unit ${i + 1}`);
+
 export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [unitSelections, setUnitSelections] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    // Load saved unit selections
+    const selections: Record<string, string> = {};
+    results.forEach(result => {
+      const savedUnit = getUnitSelection(result.file_name);
+      if (savedUnit) {
+        selections[result.file_name] = savedUnit;
+      }
+    });
+    setUnitSelections(selections);
+  }, [results]);
+
+  const handleUnitChange = (fileName: string, unit: string) => {
+    setUnitSelections(prev => ({ ...prev, [fileName]: unit }));
+    saveUnitSelection(fileName, unit);
+  };
 
   const handleExport = () => {
     const wb = XLSX.utils.book_new();
     
     const summaryData = results.map(r => ({
       'File Name': r.file_name,
-      'Wait Time': r.wait_time,
-      'Trigger Time': r.trigger_time,
+      'Unit': unitSelections[r.file_name] || '',
       'Pressure Readings': r.pressure_readings,
       'Duration (ms)': r.duration_ms,
       'Max Pressure': r.max_pressure
@@ -221,8 +247,7 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
           <TableHeader>
             <TableRow>
               <TableHead>File Name</TableHead>
-              <TableHead>Wait Time</TableHead>
-              <TableHead>Trigger Time</TableHead>
+              <TableHead>Unit</TableHead>
               <TableHead>Pressure Readings</TableHead>
               <TableHead>Duration (ms)</TableHead>
               <TableHead>Max Pressure</TableHead>
@@ -236,8 +261,23 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
                 className={selectedFiles.has(result.file_name) ? "bg-muted/50" : ""}
               >
                 <TableCell>{result.file_name}</TableCell>
-                <TableCell>{result.wait_time}</TableCell>
-                <TableCell>{result.trigger_time}</TableCell>
+                <TableCell>
+                  <Select
+                    value={unitSelections[result.file_name] || ''}
+                    onValueChange={(value) => handleUnitChange(result.file_name, value)}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select unit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {UNIT_OPTIONS.map((unit) => (
+                        <SelectItem key={unit} value={unit}>
+                          {unit}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
                 <TableCell>{result.pressure_readings}</TableCell>
                 <TableCell>{result.duration_ms}</TableCell>
                 <TableCell>{result.max_pressure}</TableCell>
