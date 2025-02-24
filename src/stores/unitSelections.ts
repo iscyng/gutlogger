@@ -56,4 +56,3 @@ export const getAllUnitSelections = async (): Promise<UnitSelection[]> => {
     unit: item.unit
   }));
 };
-
