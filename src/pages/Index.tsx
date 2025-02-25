@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { FileUploader } from '@/components/FileUploader';
@@ -114,6 +115,83 @@ const Index = () => {
     }
   };
 
+  const parseLogFile = (content: string): AnalysisResult => {
+    const lines = content.split('\n');
+    let wait_time = '';
+    let trigger_time = '';
+    let pressure_readings: number[] = [];
+    let measuring = false;
+    const settings: Record<string, string> = {};
+    const battery_info: Record<string, string> = {};
+    const temperatures: string[] = [];
+    const system_events: string[] = [];
+
+    for (const line of lines) {
+      if (line.includes("Setting")) {
+        const settingMatch = line.match(/Setting "(\w+)" (?:value is|changed from .* to) (.*)/);
+        if (settingMatch) {
+          settings[settingMatch[1]] = settingMatch[2];
+        }
+      }
+
+      if (line.includes("battery")) {
+        const batteryMatch = line.match(/battery(\w+) = (.*)/);
+        if (batteryMatch) {
+          battery_info[batteryMatch[1]] = batteryMatch[2];
+        }
+      }
+
+      if (line.includes("C")) {
+        const tempMatch = line.match(/(\d+\.\d+)C/);
+        if (tempMatch) {
+          temperatures.push(tempMatch[1]);
+        }
+      }
+
+      if (line.includes("Manager")) {
+        system_events.push(line.trim());
+      }
+
+      if (line.includes("Waiting to trigger with sample")) {
+        measuring = true;
+        const timeMatch = line.match(/\((.*?)_CST\)/);
+        if (timeMatch) {
+          wait_time = timeMatch[1].replace(/_/g, ' ');
+        }
+        continue;
+      }
+
+      if (measuring && (line.includes("Triggered!") || line.includes("TIME TO VENT"))) {
+        const timeMatch = line.match(/\((.*?)_CST\)/);
+        if (timeMatch) {
+          trigger_time = timeMatch[1].replace(/_/g, ' ');
+        }
+        break;
+      }
+
+      if (measuring) {
+        const pressureMatch = line.match(/(\d+\.\d+)psi/);
+        if (pressureMatch) {
+          pressure_readings.push(parseFloat(pressureMatch[1]));
+        }
+      }
+    }
+
+    return {
+      file_name: '',
+      wait_time,
+      trigger_time,
+      pressure_readings: pressure_readings.length,
+      duration_ms: pressure_readings.length * 50,
+      max_pressure: pressure_readings.length > 0 ? Math.max(...pressure_readings).toFixed(3) : "0.000",
+      raw_content: content,
+      settings,
+      battery_info,
+      temperatures,
+      system_events
+    };
+  };
+
   return (
     <div className="min-h-screen bg-background p-6 space-y-8">
       <div className="max-w-5xl mx-auto space-y-8">
@@ -139,7 +217,7 @@ const Index = () => {
                       <SelectItem value="">All Units</SelectItem>
                       {uniqueUnits.map(unit => (
                         <SelectItem key={unit} value={unit}>
-                          Unit {unit}
+                          {unit}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -157,7 +235,7 @@ const Index = () => {
           </Card>
 
           {files.length > 0 && (
-            <Card className="p-6 animate-file-drop">
+            <Card className="p-6">
               <FileList 
                 files={files} 
                 onRemove={handleRemoveFile} 
@@ -169,7 +247,7 @@ const Index = () => {
 
           {filteredResults.length > 0 && (
             <>
-              <Card className="p-6 animate-results-appear">
+              <Card className="p-6">
                 <ResultsDisplay results={filteredResults} />
               </Card>
               <LogAnalysisChat results={filteredResults} />
@@ -179,83 +257,6 @@ const Index = () => {
       </div>
     </div>
   );
-};
-
-const parseLogFile = (content: string): AnalysisResult => {
-  const lines = content.split('\n');
-  let wait_time = '';
-  let trigger_time = '';
-  let pressure_readings: number[] = [];
-  let measuring = false;
-  const settings: Record<string, string> = {};
-  const battery_info: Record<string, string> = {};
-  const temperatures: string[] = [];
-  const system_events: string[] = [];
-
-  for (const line of lines) {
-    if (line.includes("Setting")) {
-      const settingMatch = line.match(/Setting "(\w+)" (?:value is|changed from .* to) (.*)/);
-      if (settingMatch) {
-        settings[settingMatch[1]] = settingMatch[2];
-      }
-    }
-
-    if (line.includes("battery")) {
-      const batteryMatch = line.match(/battery(\w+) = (.*)/);
-      if (batteryMatch) {
-        battery_info[batteryMatch[1]] = batteryMatch[2];
-      }
-    }
-
-    if (line.includes("C")) {
-      const tempMatch = line.match(/(\d+\.\d+)C/);
-      if (tempMatch) {
-        temperatures.push(tempMatch[1]);
-      }
-    }
-
-    if (line.includes("Manager")) {
-      system_events.push(line.trim());
-    }
-
-    if (line.includes("Waiting to trigger with sample")) {
-      measuring = true;
-      const timeMatch = line.match(/\((.*?)_CST\)/);
-      if (timeMatch) {
-        wait_time = timeMatch[1].replace(/_/g, ' ');
-      }
-      continue;
-    }
-
-    if (measuring && (line.includes("Triggered!") || line.includes("TIME TO VENT"))) {
-      const timeMatch = line.match(/\((.*?)_CST\)/);
-      if (timeMatch) {
-        trigger_time = timeMatch[1].replace(/_/g, ' ');
-      }
-      break;
-    }
-
-    if (measuring) {
-      const pressureMatch = line.match(/(\d+\.\d+)psi/);
-      if (pressureMatch) {
-        pressure_readings.push(parseFloat(pressureMatch[1]));
-      }
-    }
-  }
-
-  return {
-    file_name: '',
-    wait_time,
-    trigger_time,
-    pressure_readings: pressure_readings.length,
-    duration_ms: pressure_readings.length * 50,
-    max_pressure: pressure_readings.length > 0 ? Math.max(...pressure_readings).toFixed(3) : "0.000",
-    raw_content: content,
-    settings,
-    battery_info,
-    temperatures,
-    system_events
-  };
 };
 
 export default Index;
