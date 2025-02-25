@@ -42,7 +42,9 @@ export const FileUploader = ({ onFilesSelected }: FileUploaderProps) => {
       onDragOver={handleDrag}
       onDrop={handleDrop}
       className={`
-        relative rounded-lg border-2 border-dashed transition-all duration-200
+        relative rounded-lg border-2 border-dashed p-12 
+        transition-all duration-200 min-h-[200px] 
+        flex flex-col items-center justify-center
         ${isDragging 
           ? 'border-primary bg-primary/5' 
           : 'border-muted-foreground/25 hover:border-primary/50'
@@ -54,9 +56,9 @@ export const FileUploader = ({ onFilesSelected }: FileUploaderProps) => {
         multiple
         accept=".log"
         onChange={handleChange}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
       />
-      <div className="p-12 text-center">
+      <div className="text-center">
         <Upload className="mx-auto h-12 w-12 text-muted-foreground/50" />
         <p className="mt-4 text-sm text-muted-foreground">
           Drag and drop your log files here, or click to select files
