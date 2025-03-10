@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BatteryStatsChart } from "./charts/BatteryStatsChart";
 import { UnitErrorSummary } from "./UnitErrorSummary";
 import { DetailedLogSummary } from "./DetailedLogSummary";
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 
 interface AnalysisResult {
   file_name: string;
@@ -103,7 +102,7 @@ export const AdditionalAnalysis = ({ results }: AdditionalAnalysisProps) => {
       return;
     }
     
-    const wb = XLSX.utils.book_new();
+    const wb = ExcelJS.utils.book_new();
     
     // Create data worksheet
     const batteryData = analysisData.batteryStats.map(stat => ({
@@ -117,11 +116,11 @@ export const AdditionalAnalysis = ({ results }: AdditionalAnalysisProps) => {
       'File': stat.fileName
     }));
     
-    const ws = XLSX.utils.json_to_sheet(batteryData);
-    XLSX.utils.book_append_sheet(wb, ws, 'Battery Stats');
+    const ws = ExcelJS.utils.json_to_sheet(batteryData);
+    ExcelJS.utils.book_append_sheet(wb, ws, 'Battery Stats');
     
     // Export workbook
-    XLSX.writeFile(wb, 'battery_statistics.xlsx');
+    ExcelJS.writeFile(wb, 'battery_statistics.xlsx');
   };
 
   const handleExportProgramStarts = () => {
@@ -134,7 +133,7 @@ export const AdditionalAnalysis = ({ results }: AdditionalAnalysisProps) => {
       return;
     }
     
-    const wb = XLSX.utils.book_new();
+    const wb = ExcelJS.utils.book_new();
     
     // Create data worksheet
     const programData = analysisData.programStarts.map(prog => ({
@@ -143,11 +142,11 @@ export const AdditionalAnalysis = ({ results }: AdditionalAnalysisProps) => {
       'Program Start': prog.programStart
     }));
     
-    const ws = XLSX.utils.json_to_sheet(programData);
-    XLSX.utils.book_append_sheet(wb, ws, 'Program Starts');
+    const ws = ExcelJS.utils.json_to_sheet(programData);
+    ExcelJS.utils.book_append_sheet(wb, ws, 'Program Starts');
     
     // Export workbook
-    XLSX.writeFile(wb, 'program_starts.xlsx');
+    ExcelJS.writeFile(wb, 'program_starts.xlsx');
   };
 
   return (
