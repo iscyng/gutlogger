@@ -22,7 +22,13 @@ export const PeakPressureChart = ({ results }: PeakPressureChartProps) => {
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="name" />
           <YAxis />
-          <Tooltip />
+          <Tooltip 
+            formatter={(value, name, props) => {
+              // Fix TypeScript error by explicitly typing the name parameter as string
+              const nameStr = String(name);
+              return [value, nameStr.endsWith('pressure') ? 'Pressure (psi)' : nameStr];
+            }} 
+          />
           <Line 
             type="monotone" 
             dataKey="pressure" 
