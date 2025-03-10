@@ -1,8 +1,16 @@
 
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
-import { useState, useEffect } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { saveUnitSelection, getUnitSelection } from '@/stores/unitSelections';
 import { useToast } from "@/hooks/use-toast";
 import { PeakPressureChart } from "@/components/charts/PeakPressureChart";
@@ -68,30 +76,60 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
     }
   };
 
-  const handleExport = () => {
-    const wb = XLSX.utils.book_new();
+  const handleExport = async () => {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'GutLogger';
+    workbook.created = new Date();
     
-    const summaryData = results.map(r => ({
-      'File Name': r.file_name,
-      'Unit': unitSelections[r.file_name] || '',
-      'Pressure Readings': r.pressure_readings,
-      'Duration (ms)': r.duration_ms,
-      'Max Pressure': r.max_pressure
-    }));
-    const summaryWs = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
-
-    results.forEach(result => {
-      const readings = getPressureReadings(result.raw_content);
-      const readingsData = readings.map(r => ({
-        'Time (ms)': r.time,
-        'Pressure (psi)': r.pressure
-      }));
-      const readingsWs = XLSX.utils.json_to_sheet(readingsData);
-      XLSX.utils.book_append_sheet(wb, readingsWs, `${result.file_name.slice(0, 28)}_Data`);
+    // Create Summary sheet
+    const summarySheet = workbook.addWorksheet('Summary');
+    summarySheet.columns = [
+      { header: 'File Name', key: 'fileName' },
+      { header: 'Unit', key: 'unit' },
+      { header: 'Pressure Readings', key: 'readings' },
+      { header: 'Duration (ms)', key: 'duration' },
+      { header: 'Max Pressure', key: 'maxPressure' }
+    ];
+    
+    results.forEach(r => {
+      summarySheet.addRow({
+        fileName: r.file_name,
+        unit: unitSelections[r.file_name] || '',
+        readings: r.pressure_readings,
+        duration: r.duration_ms,
+        maxPressure: r.max_pressure
+      });
     });
 
-    XLSX.writeFile(wb, 'bubble_sensor_analysis.xlsx');
+    // Create individual data sheets
+    results.forEach(result => {
+      const readings = getPressureReadings(result.raw_content);
+      const sheetName = `${result.file_name.slice(0, 28)}_Data`;
+      const dataSheet = workbook.addWorksheet(sheetName);
+      
+      dataSheet.columns = [
+        { header: 'Time (ms)', key: 'time' },
+        { header: 'Pressure (psi)', key: 'pressure' }
+      ];
+      
+      readings.forEach(reading => {
+        dataSheet.addRow({
+          time: reading.time,
+          pressure: reading.pressure
+        });
+      });
+    });
+
+    // Save workbook
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bubble_sensor_analysis.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const toggleFileSelection = (fileName: string) => {
