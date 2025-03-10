@@ -262,8 +262,8 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
               />
               <Tooltip 
                 labelFormatter={(value) => `Time: ${value}ms`}
-                formatter={(value, name) => {
-                  if (name.includes('_event')) return [value, 'Event'];
+                formatter={(value, name: string) => {
+                  if (name.endsWith('_event')) return [value, 'Event'];
                   return [value, 'Pressure (psi)'];
                 }}
               />
