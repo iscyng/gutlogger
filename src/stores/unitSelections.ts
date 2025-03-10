@@ -14,7 +14,7 @@ export const saveUnitSelection = async (fileName: string, unit: string): Promise
         file_name: fileName, 
         unit,
         updated_at: new Date().toISOString()
-      },
+      } as any, // Type assertion to fix the type mismatch
       {
         onConflict: 'file_name'
       }
@@ -31,7 +31,7 @@ export const getUnitSelection = async (fileName: string): Promise<string> => {
     .from('unit_selections')
     .select('unit')
     .eq('file_name', fileName)
-    .maybeSingle();
+    .maybeSingle() as { data: { unit: string } | null; error: any };
   
   if (error) {
     console.error('Error getting unit selection:', error);
@@ -44,7 +44,7 @@ export const getUnitSelection = async (fileName: string): Promise<string> => {
 export const getAllUnitSelections = async (): Promise<UnitSelection[]> => {
   const { data, error } = await supabase
     .from('unit_selections')
-    .select('file_name, unit');
+    .select('file_name, unit') as { data: Array<{ file_name: string; unit: string }> | null; error: any };
   
   if (error) {
     console.error('Error getting all unit selections:', error);

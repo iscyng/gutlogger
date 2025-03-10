@@ -173,7 +173,6 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
     setSelectedFiles(newSelection);
   };
 
-  // Modify the overlayChartData useMemo to include events
   const overlayChartData = useMemo(() => {
     const selectedFilesData = Array.from(selectedFiles).map((fileName, index) => {
       const fileData = results.find(r => r.file_name === fileName);
@@ -190,7 +189,6 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
       };
     }).filter(Boolean);
 
-    // Create time points array as before
     const maxTime = Math.max(
       ...selectedFilesData.map(data => 
         Math.max(...data!.readings.map(r => r.time))
@@ -202,7 +200,6 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
       (_, i) => i * 50
     );
 
-    // Create the combined dataset with events
     return timePoints.map(time => {
       const point: { [key: string]: number | string } = { time };
       selectedFilesData.forEach(data => {
@@ -211,7 +208,7 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
           point[data!.fileName] = reading.pressure;
         }
         // Add event if it exists at this time point
-        const event = data!.events.find(e => Math.abs(e.time - time) < 25); // Within 25ms
+        const event = data!.events.find(e => Math.abs(e.time - time) < 25);
         if (event) {
           point[`${data!.fileName}_event`] = event.event;
         }
