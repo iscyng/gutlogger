@@ -9,7 +9,7 @@ import { PeakPressureChart } from "@/components/charts/PeakPressureChart";
 import { OverlayChart } from "@/components/charts/OverlayChart";
 import { ResultsTable } from "@/components/tables/ResultsTable";
 import { AdditionalAnalysis } from "@/components/AdditionalAnalysis";
-import { getPressureReadings, type AnalysisResult } from "@/utils/chartUtils";
+import { getPressureReadings, type AnalysisResult } from '@/utils/chartUtils';
 
 interface ResultsDisplayProps {
   results: AnalysisResult[];

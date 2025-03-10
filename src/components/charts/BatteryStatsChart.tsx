@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line, Legend } from 'recharts';
 import { lineColors } from '@/utils/chartUtils';
@@ -12,6 +11,7 @@ interface BatteryStatEntry {
   batteryVoltage?: string;
   fileName: string;
   unitNumber: string;
+  [key: string]: string | number | undefined;
 }
 
 interface BatteryStatsChartProps {
@@ -40,7 +40,7 @@ export const BatteryStatsChart = ({ batteryStats, unitNumbers }: BatteryStatsCha
       .filter(stat => stat.unitNumber === selectedUnit && stat[selectedStat] !== undefined)
       .map(stat => ({
         timestamp: stat.timestamp,
-        [selectedStat]: parseFloat(stat[selectedStat] || '0'),
+        [selectedStat]: parseFloat(stat[selectedStat] as string || '0'),
         fileName: stat.fileName,
       }))
       .sort((a, b) => {

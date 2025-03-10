@@ -23,6 +23,7 @@ export const UnitErrorSummary = ({ unitCycles, unitErrors }: UnitErrorSummaryPro
               <TableHead>Total Cycles</TableHead>
               <TableHead>Errors</TableHead>
               <TableHead>Error Rate</TableHead>
+              <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -31,12 +32,25 @@ export const UnitErrorSummary = ({ unitCycles, unitErrors }: UnitErrorSummaryPro
               const errors = unitErrors[unit] || 0;
               const errorRate = cycles > 0 ? ((errors / cycles) * 100).toFixed(1) : "0.0";
               
+              // Determine status based on error rate
+              let status = "Good";
+              let statusClass = "text-green-600";
+              
+              if (parseFloat(errorRate) > 5) {
+                status = "Critical";
+                statusClass = "text-red-600 font-bold";
+              } else if (parseFloat(errorRate) > 1) {
+                status = "Warning";
+                statusClass = "text-amber-600 font-medium";
+              }
+              
               return (
                 <TableRow key={unit}>
                   <TableCell className="font-medium">Unit {unit}</TableCell>
                   <TableCell>{cycles}</TableCell>
                   <TableCell>{errors}</TableCell>
                   <TableCell>{errorRate}%</TableCell>
+                  <TableCell className={statusClass}>{status}</TableCell>
                 </TableRow>
               );
             })}

@@ -20,9 +20,17 @@ interface AdditionalAnalysisProps {
   results: AnalysisResult[];
 }
 
+// Define the consistent BatteryStatEntry interface to fix type errors
 interface BatteryStatEntry {
   timestamp: string;
-  [key: string]: string | number;
+  batteryPercent?: string;
+  batteryTempMin?: string;
+  batteryTempMax?: string;
+  batteryCurrent?: string;
+  batteryVoltage?: string;
+  fileName: string;
+  unitNumber: string;
+  [key: string]: string | number | undefined;
 }
 
 interface ProgramStartEntry {

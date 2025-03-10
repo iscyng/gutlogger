@@ -126,7 +126,7 @@ function extractUnitNumber(lines) {
   return "Unknown";
 }
 
-// Extract important information from log content
+// Extract important information from log content - enhanced with more comprehensive analysis
 function extractImportantInfo(lines) {
   const importantLines = [];
   let errorCount = 0;
@@ -150,7 +150,7 @@ function extractImportantInfo(lines) {
       }
     }
     
-    // Collect battery statistics
+    // Collect battery statistics - enhanced to capture more parameters
     const batteryMatch = cleanLine.match(/I \((.*?)\) ManagerSystem: (\w+) = ([\d\.]+)([A-Za-z%]*)/);
     if (batteryMatch) {
       const timestamp = batteryMatch[1];

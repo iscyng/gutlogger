@@ -22,9 +22,11 @@ interface DetailedLogSummaryProps {
 export const DetailedLogSummary = ({ logSummaries, unitNumbers }: DetailedLogSummaryProps) => {
   const [selectedUnit, setSelectedUnit] = useState<string>("all");
   const [showBatteryOnly, setShowBatteryOnly] = useState(false);
+  const [showErrorsOnly, setShowErrorsOnly] = useState(false);
   
   const filteredLogs = logSummaries.filter(log => 
-    selectedUnit === "all" || log.unitNumber === selectedUnit
+    (selectedUnit === "all" || log.unitNumber === selectedUnit) && 
+    (!showErrorsOnly || log.errorCount > 0)
   );
   
   return (
@@ -53,6 +55,18 @@ export const DetailedLogSummary = ({ logSummaries, unitNumbers }: DetailedLogSum
               />
               <label htmlFor="batteryFilter" className="text-sm">
                 Battery Stats Only
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="errorFilter"
+                checked={showErrorsOnly}
+                onChange={e => setShowErrorsOnly(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-primary"
+              />
+              <label htmlFor="errorFilter" className="text-sm">
+                Errors Only
               </label>
             </div>
           </div>
