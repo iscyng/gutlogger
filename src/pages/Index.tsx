@@ -165,8 +165,8 @@ const Index = () => {
     <div className="min-h-screen bg-background p-6 space-y-8">
       <div className="max-w-5xl mx-auto space-y-8">
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">Bubble Sensor Analysis</h1>
-          <p className="text-muted-foreground">Upload your log files to analyze bubble sensor data</p>
+          <h1 className="text-4xl font-bold tracking-tight">GutLogger</h1>
+          <p className="text-muted-foreground">Upload your log files to analyze data</p>
         </div>
 
         <div className="grid gap-6">
