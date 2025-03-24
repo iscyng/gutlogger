@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,6 +18,7 @@ interface AnalysisResult {
 
 interface AdditionalAnalysisProps {
   results: AnalysisResult[];
+  autoAnalyze?: boolean;
 }
 
 // Define the consistent BatteryStatEntry interface to fix type errors
@@ -55,10 +57,16 @@ interface AnalysisResponse {
   logSummaries: LogSummary[];
 }
 
-export const AdditionalAnalysis = ({ results }: AdditionalAnalysisProps) => {
+export const AdditionalAnalysis = ({ results, autoAnalyze = false }: AdditionalAnalysisProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisData, setAnalysisData] = useState<AnalysisResponse | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (autoAnalyze && results.length > 0 && !analysisData && !isAnalyzing) {
+      handleAnalyze();
+    }
+  }, [results, autoAnalyze, analysisData]);
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true);
@@ -77,13 +85,13 @@ export const AdditionalAnalysis = ({ results }: AdditionalAnalysisProps) => {
       
       setAnalysisData(data);
       toast({
-        title: "Analysis Complete",
+        title: "Additional Analysis Complete",
         description: "Additional log analysis has been completed successfully",
       });
     } catch (error) {
       console.error('Error in additional analysis:', error);
       toast({
-        title: "Analysis Failed",
+        title: "Additional Analysis Failed",
         description: "Failed to complete the additional log analysis",
         variant: "destructive",
       });
@@ -158,21 +166,31 @@ export const AdditionalAnalysis = ({ results }: AdditionalAnalysisProps) => {
         {!analysisData ? (
           <div className="text-center">
             <p className="mb-4">
-              Run additional analysis to extract battery statistics, program starts, and error details from your log files.
+              {isAnalyzing ? 
+                "Running additional analysis to extract battery statistics, program starts, and error details..." :
+                "Waiting for analysis to complete..."
+              }
             </p>
-            <Button 
-              onClick={handleAnalyze} 
-              disabled={isAnalyzing || results.length === 0}
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                "Run Additional Analysis"
-              )}
-            </Button>
+            {!autoAnalyze && (
+              <Button 
+                onClick={handleAnalyze} 
+                disabled={isAnalyzing || results.length === 0}
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  "Run Additional Analysis"
+                )}
+              </Button>
+            )}
+            {isAnalyzing && (
+              <div className="flex justify-center mt-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-6">

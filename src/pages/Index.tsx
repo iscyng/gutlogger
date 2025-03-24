@@ -5,6 +5,7 @@ import { FileUploader } from '@/components/FileUploader';
 import { ResultsDisplay } from '@/components/ResultsDisplay';
 import { FileList } from '@/components/FileList';
 import { LogAnalysisChat } from '@/components/LogAnalysisChat';
+import { AdditionalAnalysis } from '@/components/AdditionalAnalysis';
 import { Card } from "@/components/ui/card";
 
 interface AnalysisResult {
@@ -190,6 +191,7 @@ const Index = () => {
               <Card className="p-6 animate-results-appear">
                 <ResultsDisplay results={results} />
               </Card>
+              <AdditionalAnalysis results={results} autoAnalyze={true} />
               <LogAnalysisChat results={results} />
             </>
           )}
