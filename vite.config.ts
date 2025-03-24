@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-    allowedHosts: "all", // Allow all hosts
+    allowedHosts: true, // Changed from "all" to true to fix the type error
   },
   plugins: [
     react(),
