@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BatteryStatsChart } from "./charts/BatteryStatsChart";
 import { UnitErrorSummary } from "./UnitErrorSummary";
 import { DetailedLogSummary } from "./DetailedLogSummary";
-import * as ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 
 interface AnalysisResult {
   file_name: string;
@@ -110,7 +110,7 @@ export const AdditionalAnalysis = ({ results, autoAnalyze = false }: AdditionalA
       return;
     }
     
-    const wb = ExcelJS.utils.book_new();
+    const wb = XLSX.utils.book_new();
     
     // Create data worksheet
     const batteryData = analysisData.batteryStats.map(stat => ({
@@ -124,11 +124,11 @@ export const AdditionalAnalysis = ({ results, autoAnalyze = false }: AdditionalA
       'File': stat.fileName
     }));
     
-    const ws = ExcelJS.utils.json_to_sheet(batteryData);
-    ExcelJS.utils.book_append_sheet(wb, ws, 'Battery Stats');
+    const ws = XLSX.utils.json_to_sheet(batteryData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Battery Stats');
     
     // Export workbook
-    ExcelJS.writeFile(wb, 'battery_statistics.xlsx');
+    XLSX.writeFile(wb, 'battery_statistics.xlsx');
   };
 
   const handleExportProgramStarts = () => {
@@ -141,7 +141,7 @@ export const AdditionalAnalysis = ({ results, autoAnalyze = false }: AdditionalA
       return;
     }
     
-    const wb = ExcelJS.utils.book_new();
+    const wb = XLSX.utils.book_new();
     
     // Create data worksheet
     const programData = analysisData.programStarts.map(prog => ({
@@ -150,11 +150,11 @@ export const AdditionalAnalysis = ({ results, autoAnalyze = false }: AdditionalA
       'Program Start': prog.programStart
     }));
     
-    const ws = ExcelJS.utils.json_to_sheet(programData);
-    ExcelJS.utils.book_append_sheet(wb, ws, 'Program Starts');
+    const ws = XLSX.utils.json_to_sheet(programData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Program Starts');
     
     // Export workbook
-    ExcelJS.writeFile(wb, 'program_starts.xlsx');
+    XLSX.writeFile(wb, 'program_starts.xlsx');
   };
 
   return (

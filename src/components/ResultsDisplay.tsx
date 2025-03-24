@@ -16,7 +16,6 @@ import { useToast } from "@/hooks/use-toast";
 import { PeakPressureChart } from "@/components/charts/PeakPressureChart";
 import { OverlayChart } from "@/components/charts/OverlayChart";
 import { ResultsTable } from "@/components/tables/ResultsTable";
-import { AdditionalAnalysis } from "@/components/AdditionalAnalysis";
 import { getPressureReadings, type AnalysisResult } from '@/utils/chartUtils';
 
 interface ResultsDisplayProps {
@@ -77,59 +76,38 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
   };
 
   const handleExport = async () => {
-    const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'GutLogger';
-    workbook.created = new Date();
+    const wb = XLSX.utils.book_new();
     
     // Create Summary sheet
-    const summarySheet = workbook.addWorksheet('Summary');
-    summarySheet.columns = [
-      { header: 'File Name', key: 'fileName' },
-      { header: 'Unit', key: 'unit' },
-      { header: 'Pressure Readings', key: 'readings' },
-      { header: 'Duration (ms)', key: 'duration' },
-      { header: 'Max Pressure', key: 'maxPressure' }
-    ];
+    const summaryData = results.map(r => ({
+      'File Name': r.file_name,
+      'Unit': unitSelections[r.file_name] || '',
+      'Pressure Readings': r.pressure_readings,
+      'Duration (ms)': r.duration_ms,
+      'Max Pressure': r.max_pressure
+    }));
     
-    results.forEach(r => {
-      summarySheet.addRow({
-        fileName: r.file_name,
-        unit: unitSelections[r.file_name] || '',
-        readings: r.pressure_readings,
-        duration: r.duration_ms,
-        maxPressure: r.max_pressure
-      });
-    });
-
+    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+    
     // Create individual data sheets
     results.forEach(result => {
       const readings = getPressureReadings(result.raw_content);
-      const sheetName = `${result.file_name.slice(0, 28)}_Data`;
-      const dataSheet = workbook.addWorksheet(sheetName);
+      const sheetName = result.file_name.length > 28 
+        ? `${result.file_name.slice(0, 28)}_Data` 
+        : `${result.file_name}_Data`;
       
-      dataSheet.columns = [
-        { header: 'Time (ms)', key: 'time' },
-        { header: 'Pressure (psi)', key: 'pressure' }
-      ];
+      const readingsData = readings.map(reading => ({
+        'Time (ms)': reading.time,
+        'Pressure (psi)': reading.pressure
+      }));
       
-      readings.forEach(reading => {
-        dataSheet.addRow({
-          time: reading.time,
-          pressure: reading.pressure
-        });
-      });
+      const dataSheet = XLSX.utils.json_to_sheet(readingsData);
+      XLSX.utils.book_append_sheet(wb, dataSheet, sheetName);
     });
 
     // Save workbook
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'bubble_sensor_analysis.xlsx';
-    a.click();
-    URL.revokeObjectURL(url);
+    XLSX.writeFile(wb, 'bubble_sensor_analysis.xlsx');
   };
 
   const toggleFileSelection = (fileName: string) => {
@@ -164,8 +142,6 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
         onUnitChange={handleUnitChange}
         onToggleFileSelection={toggleFileSelection}
       />
-      
-      <AdditionalAnalysis results={results} />
     </div>
   );
 };
