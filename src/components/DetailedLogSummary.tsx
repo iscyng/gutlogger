@@ -1,10 +1,10 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface LogSummary {
   fileName: string;
@@ -23,6 +23,7 @@ export const DetailedLogSummary = ({ logSummaries, unitNumbers }: DetailedLogSum
   const [selectedUnit, setSelectedUnit] = useState<string>("all");
   const [showBatteryOnly, setShowBatteryOnly] = useState(false);
   const [showErrorsOnly, setShowErrorsOnly] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<LogSummary | null>(null);
   
   const filteredLogs = logSummaries.filter(log => 
     (selectedUnit === "all" || log.unitNumber === selectedUnit) && 
@@ -141,10 +142,7 @@ export const DetailedLogSummary = ({ logSummaries, unitNumbers }: DetailedLogSum
                         {log.errorCount}
                       </TableCell>
                       <TableCell>
-                        <Button variant="outline" size="sm" onClick={() => {
-                          // This would show a dialog or expand the view
-                          alert(`Details for ${log.fileName} would be shown here`);
-                        }}>
+                        <Button variant="outline" size="sm" onClick={() => setSelectedLog(log)}>
                           View Details
                         </Button>
                       </TableCell>
@@ -156,6 +154,38 @@ export const DetailedLogSummary = ({ logSummaries, unitNumbers }: DetailedLogSum
           </TabsContent>
         </Tabs>
       </CardContent>
+
+      <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Log Details - {selectedLog?.fileName}</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[60vh]">
+            <div className="space-y-2">
+              {selectedLog?.importantLines.map((line, idx) => {
+                let className = "px-3 py-2 rounded-sm";
+                if (line.toUpperCase().includes('RECEIVED ERROR CODE')) {
+                  className += " bg-red-100 border-l-4 border-red-500";
+                } else if (/RL\d{3}/.test(line)) {
+                  className += " bg-amber-100 border-l-4 border-amber-500";
+                } else if (line.includes('ManagerSystemImplDevice: Started program')) {
+                  className += " bg-green-100 border-l-4 border-green-500";
+                } else if (line.toLowerCase().includes('battery')) {
+                  className += " bg-blue-100 border-l-4 border-blue-500";
+                } else {
+                  className += " bg-gray-50";
+                }
+                
+                return (
+                  <div key={idx} className={className}>
+                    <pre className="text-xs whitespace-pre-wrap">{line}</pre>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
