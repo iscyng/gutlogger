@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
@@ -90,19 +90,6 @@ export const UnitComparisonAnalysis = ({ results, unitSelections }: UnitComparis
     stdDev: parseFloat(stats.stdDevMaxPressure.toFixed(3))
   }));
 
-  const cycleChartData = results.map(result => {
-    const unit = unitSelections[result.file_name] || 'Unknown';
-    const cycle = result.file_name.match(/cycle(\d+)/i)?.[1] || 
-                 result.file_name.match(/(\d+)/)?.[1] || 
-                 result.file_name;
-    return {
-      cycle,
-      unit,
-      pressure: parseFloat(result.max_pressure),
-      duration: result.duration_ms
-    };
-  });
-
   // Function to export data to Excel
   const handleExport = () => {
     const wb = XLSX.utils.book_new();
@@ -158,7 +145,6 @@ export const UnitComparisonAnalysis = ({ results, unitSelections }: UnitComparis
           <TabsList className="mb-4">
             <TabsTrigger value="summary">Summary</TabsTrigger>
             <TabsTrigger value="bars">Bar Charts</TabsTrigger>
-            <TabsTrigger value="lines">Trend Charts</TabsTrigger>
             <TabsTrigger value="stats">Statistics</TabsTrigger>
           </TabsList>
           
@@ -193,33 +179,6 @@ export const UnitComparisonAnalysis = ({ results, unitSelections }: UnitComparis
                   <Bar dataKey="avgPressure" fill={lineColors[0]} name="Avg Pressure" />
                   <Bar dataKey="maxPressure" fill={lineColors[3]} name="Max Pressure" />
                 </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="lines" className="mt-0">
-            <h3 className="text-sm font-medium mb-2">Pressure Trend Across Cycles</h3>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={cycleChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="cycle" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [parseFloat(value as string).toFixed(3), 'Pressure (psi)']} />
-                  <Legend />
-                  {Object.keys(unitStats).map((unit, index) => (
-                    <Line 
-                      key={unit}
-                      type="monotone" 
-                      dataKey="pressure" 
-                      data={cycleChartData.filter(d => d.unit === unit)}
-                      name={unit}
-                      stroke={lineColors[index % lineColors.length]} 
-                      activeDot={{ r: 8 }}
-                      connectNulls
-                    />
-                  ))}
-                </LineChart>
               </ResponsiveContainer>
             </div>
           </TabsContent>
