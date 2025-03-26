@@ -1,26 +1,14 @@
 
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ScatterChart,
-  Scatter,
-  ZAxis,
-  LineChart,
-  Line,
-} from "recharts";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
-import * as XLSX from "xlsx";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
+import { lineColors } from '@/utils/chartUtils';
 import type { AnalysisResult } from '@/utils/chartUtils';
 
 interface UnitComparisonAnalysisProps {
@@ -28,167 +16,125 @@ interface UnitComparisonAnalysisProps {
   unitSelections: Record<string, string>;
 }
 
-export const UnitComparisonAnalysis = ({ results, unitSelections }: UnitComparisonAnalysisProps) => {
-  const { toast } = useToast();
-  const [comparisonMetric, setComparisonMetric] = useState<"max_pressure" | "duration_ms" | "pressure_readings">("max_pressure");
+interface UnitStats {
+  avgMaxPressure: number;
+  minMaxPressure: number;
+  maxMaxPressure: number;
+  stdDevMaxPressure: number;
+  avgDuration: number;
+  avgReadings: number;
+  files: AnalysisResult[];
+}
 
-  // Group results by unit
-  const unitData = useMemo(() => {
-    const unitMap: Record<string, AnalysisResult[]> = {};
+export const UnitComparisonAnalysis = ({ results, unitSelections }: UnitComparisonAnalysisProps) => {
+  const [activeTab, setActiveTab] = useState<string>("summary");
+  const { toast } = useToast();
+
+  // Group results by unit and calculate statistics
+  const unitStats = useMemo(() => {
+    const unitGroups: Record<string, AnalysisResult[]> = {};
     
+    // Group files by unit
     results.forEach(result => {
       const unit = unitSelections[result.file_name];
       if (unit) {
-        if (!unitMap[unit]) {
-          unitMap[unit] = [];
+        if (!unitGroups[unit]) {
+          unitGroups[unit] = [];
         }
-        unitMap[unit].push(result);
+        unitGroups[unit].push(result);
       }
     });
     
-    return unitMap;
-  }, [results, unitSelections]);
-
-  // Create comparison data for charts
-  const comparisonData = useMemo(() => {
-    // Calculate averages for each unit
-    const unitAverages = Object.entries(unitData).map(([unit, unitResults]) => {
-      const avgMaxPressure = unitResults.reduce((sum, result) => sum + parseFloat(result.max_pressure), 0) / unitResults.length;
-      const avgDuration = unitResults.reduce((sum, result) => sum + result.duration_ms, 0) / unitResults.length;
-      const avgReadings = unitResults.reduce((sum, result) => sum + result.pressure_readings, 0) / unitResults.length;
-      
-      return {
-        unit,
-        avgMaxPressure: parseFloat(avgMaxPressure.toFixed(3)),
-        avgDuration: parseFloat(avgDuration.toFixed(1)),
-        avgReadings: parseFloat(avgReadings.toFixed(1)),
-        cycleCount: unitResults.length,
-      };
-    });
-
-    // Create cycle-by-cycle comparison
-    const cycleComparison = Object.entries(unitData).flatMap(([unit, unitResults]) => {
-      return unitResults.map((result, index) => ({
-        unit,
-        cycle: index + 1,
-        maxPressure: parseFloat(result.max_pressure),
-        duration: result.duration_ms,
-        readings: result.pressure_readings,
-        fileName: result.file_name,
-      }));
-    });
-
-    return {
-      unitAverages,
-      cycleComparison,
-    };
-  }, [unitData]);
-
-  // Generate statistical analysis 
-  const statistics = useMemo(() => {
-    const stats: Record<string, any> = {};
-    
-    Object.entries(unitData).forEach(([unit, unitResults]) => {
+    // Calculate statistics for each unit
+    const stats: Record<string, UnitStats> = {};
+    Object.entries(unitGroups).forEach(([unit, unitResults]) => {
       const maxPressures = unitResults.map(r => parseFloat(r.max_pressure));
-      const durations = unitResults.map(r => r.duration_ms);
-      const readings = unitResults.map(r => r.pressure_readings);
+      const avgMaxPressure = maxPressures.reduce((sum, val) => sum + val, 0) / maxPressures.length;
+      const minMaxPressure = Math.min(...maxPressures);
+      const maxMaxPressure = Math.max(...maxPressures);
+      
+      // Calculate standard deviation
+      const variance = maxPressures.reduce((sum, val) => sum + Math.pow(val - avgMaxPressure, 2), 0) / maxPressures.length;
+      const stdDevMaxPressure = Math.sqrt(variance);
+      
+      const avgDuration = unitResults.reduce((sum, r) => sum + r.duration_ms, 0) / unitResults.length;
+      const avgReadings = unitResults.reduce((sum, r) => sum + r.pressure_readings, 0) / unitResults.length;
       
       stats[unit] = {
-        maxPressure: {
-          min: Math.min(...maxPressures).toFixed(3),
-          max: Math.max(...maxPressures).toFixed(3),
-          avg: (maxPressures.reduce((a, b) => a + b, 0) / maxPressures.length).toFixed(3),
-          stdDev: calculateStdDev(maxPressures).toFixed(3),
-        },
-        duration: {
-          min: Math.min(...durations),
-          max: Math.max(...durations),
-          avg: (durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(1),
-          stdDev: calculateStdDev(durations).toFixed(1),
-        },
-        readings: {
-          min: Math.min(...readings),
-          max: Math.max(...readings),
-          avg: (readings.reduce((a, b) => a + b, 0) / readings.length).toFixed(1),
-          stdDev: calculateStdDev(readings).toFixed(1),
-        },
-        cycleCount: unitResults.length,
+        avgMaxPressure,
+        minMaxPressure,
+        maxMaxPressure,
+        stdDevMaxPressure,
+        avgDuration,
+        avgReadings,
+        files: unitResults
       };
     });
     
     return stats;
-  }, [unitData]);
+  }, [results, unitSelections]);
 
-  // Helper function to calculate standard deviation
-  const calculateStdDev = (values: number[]) => {
-    const avg = values.reduce((a, b) => a + b, 0) / values.length;
-    const squareDiffs = values.map(value => Math.pow(value - avg, 2));
-    const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / squareDiffs.length;
-    return Math.sqrt(avgSquareDiff);
-  };
+  // Check if we have at least two units to compare
+  const hasMultipleUnits = Object.keys(unitStats).length >= 2;
+  
+  if (!hasMultipleUnits) {
+    return null; // Don't render if there aren't multiple units to compare
+  }
 
-  // Export comparison data
-  const handleExportComparison = () => {
+  // Prepare data for charts
+  const summaryChartData = Object.entries(unitStats).map(([unit, stats]) => ({
+    unit,
+    avgPressure: parseFloat(stats.avgMaxPressure.toFixed(3)),
+    minPressure: parseFloat(stats.minMaxPressure.toFixed(3)),
+    maxPressure: parseFloat(stats.maxMaxPressure.toFixed(3)),
+    stdDev: parseFloat(stats.stdDevMaxPressure.toFixed(3))
+  }));
+
+  const cycleChartData = results.map(result => {
+    const unit = unitSelections[result.file_name] || 'Unknown';
+    const cycle = result.file_name.match(/cycle(\d+)/i)?.[1] || 
+                 result.file_name.match(/(\d+)/)?.[1] || 
+                 result.file_name;
+    return {
+      cycle,
+      unit,
+      pressure: parseFloat(result.max_pressure),
+      duration: result.duration_ms
+    };
+  });
+
+  // Function to export data to Excel
+  const handleExport = () => {
     const wb = XLSX.utils.book_new();
     
-    // Create summary sheet with averages
-    const summaryData = comparisonData.unitAverages.map(unitAvg => ({
-      'Unit': unitAvg.unit,
-      'Avg Max Pressure (psi)': unitAvg.avgMaxPressure,
-      'Avg Duration (ms)': unitAvg.avgDuration, 
-      'Avg Readings': unitAvg.avgReadings,
-      'Cycle Count': unitAvg.cycleCount,
+    // Create Summary sheet
+    const summaryData = Object.entries(unitStats).map(([unit, stats]) => ({
+      'Unit': unit,
+      'Avg Max Pressure (psi)': stats.avgMaxPressure.toFixed(3),
+      'Min Max Pressure (psi)': stats.minMaxPressure.toFixed(3),
+      'Max Max Pressure (psi)': stats.maxMaxPressure.toFixed(3),
+      'StdDev Max Pressure': stats.stdDevMaxPressure.toFixed(3),
+      'Avg Duration (ms)': stats.avgDuration.toFixed(0),
+      'Avg Readings': stats.avgReadings.toFixed(0),
+      'Number of Files': stats.files.length
     }));
     
     const summarySheet = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, summarySheet, 'Unit Summary');
+    XLSX.utils.book_append_sheet(wb, summarySheet, 'Unit Comparison');
     
-    // Create detailed comparison sheet
-    const detailedData = comparisonData.cycleComparison.map(cycle => ({
-      'Unit': cycle.unit,
-      'Cycle': cycle.cycle,
-      'Max Pressure (psi)': cycle.maxPressure,
-      'Duration (ms)': cycle.duration,
-      'Readings': cycle.readings,
-      'File': cycle.fileName,
-    }));
-    
-    const detailedSheet = XLSX.utils.json_to_sheet(detailedData);
-    XLSX.utils.book_append_sheet(wb, detailedSheet, 'Cycle Details');
-    
-    // Create statistics sheet
-    const statsData = Object.entries(statistics).flatMap(([unit, stats]) => {
-      return [
-        {
-          'Unit': unit,
-          'Metric': 'Max Pressure (psi)',
-          'Min': stats.maxPressure.min,
-          'Max': stats.maxPressure.max,
-          'Average': stats.maxPressure.avg,
-          'Std Dev': stats.maxPressure.stdDev,
-        },
-        {
-          'Unit': unit,
-          'Metric': 'Duration (ms)',
-          'Min': stats.duration.min,
-          'Max': stats.duration.max,
-          'Average': stats.duration.avg,
-          'Std Dev': stats.duration.stdDev,
-        },
-        {
-          'Unit': unit,
-          'Metric': 'Pressure Readings',
-          'Min': stats.readings.min,
-          'Max': stats.readings.max,
-          'Average': stats.readings.avg,
-          'Std Dev': stats.readings.stdDev,
-        },
-      ];
+    // Add sheet for each unit with its test data
+    Object.entries(unitStats).forEach(([unit, stats]) => {
+      const unitData = stats.files.map(file => ({
+        'File Name': file.file_name,
+        'Max Pressure (psi)': file.max_pressure,
+        'Duration (ms)': file.duration_ms,
+        'Pressure Readings': file.pressure_readings
+      }));
+      
+      const unitSheet = XLSX.utils.json_to_sheet(unitData);
+      XLSX.utils.book_append_sheet(wb, unitSheet, `Unit ${unit} Data`);
     });
-    
-    const statsSheet = XLSX.utils.json_to_sheet(statsData);
-    XLSX.utils.book_append_sheet(wb, statsSheet, 'Statistics');
-    
+
     // Save workbook
     XLSX.writeFile(wb, 'unit_comparison_analysis.xlsx');
     
@@ -198,115 +144,79 @@ export const UnitComparisonAnalysis = ({ results, unitSelections }: UnitComparis
     });
   };
 
-  // Only show component if we have at least 2 units with data
-  const hasMultipleUnits = Object.keys(unitData).length >= 2;
-  if (!hasMultipleUnits) {
-    return null;
-  }
-
   return (
     <Card className="mt-6">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Unit Comparison Analysis</CardTitle>
-        <Button onClick={handleExportComparison} variant="outline">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-md font-semibold">Unit Comparison Analysis</CardTitle>
+        <Button onClick={handleExport} variant="outline" size="sm">
           <Download className="mr-2 h-4 w-4" />
-          Export Comparison
+          Export
         </Button>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="averages">
-          <TabsList>
-            <TabsTrigger value="averages">Average Metrics</TabsTrigger>
-            <TabsTrigger value="cycles">Cycle Comparison</TabsTrigger>
-            <TabsTrigger value="statistics">Statistics</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="summary">Summary</TabsTrigger>
+            <TabsTrigger value="bars">Bar Charts</TabsTrigger>
+            <TabsTrigger value="lines">Trend Charts</TabsTrigger>
+            <TabsTrigger value="stats">Statistics</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="averages" className="space-y-4">
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              <Button 
-                variant={comparisonMetric === "max_pressure" ? "default" : "outline"}
-                onClick={() => setComparisonMetric("max_pressure")}
-              >
-                Max Pressure
-              </Button>
-              <Button 
-                variant={comparisonMetric === "duration_ms" ? "default" : "outline"}
-                onClick={() => setComparisonMetric("duration_ms")}
-              >
-                Duration
-              </Button>
-              <Button 
-                variant={comparisonMetric === "pressure_readings" ? "default" : "outline"}
-                onClick={() => setComparisonMetric("pressure_readings")}
-              >
-                Readings
-              </Button>
-            </div>
-            
-            <div className="h-[400px]">
+          <TabsContent value="summary" className="mt-0">
+            <h3 className="text-sm font-medium mb-2">Average Max Pressure by Unit</h3>
+            <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={comparisonData.unitAverages}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                >
+                <BarChart data={summaryChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="unit" />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip formatter={(value) => [parseFloat(value as string).toFixed(3), 'Pressure (psi)']} />
                   <Legend />
-                  {comparisonMetric === "max_pressure" && (
-                    <Bar 
-                      name="Avg Max Pressure (psi)" 
-                      dataKey="avgMaxPressure" 
-                      fill="#2563eb" 
-                    />
-                  )}
-                  {comparisonMetric === "duration_ms" && (
-                    <Bar 
-                      name="Avg Duration (ms)" 
-                      dataKey="avgDuration" 
-                      fill="#16a34a" 
-                    />
-                  )}
-                  {comparisonMetric === "pressure_readings" && (
-                    <Bar 
-                      name="Avg Readings" 
-                      dataKey="avgReadings" 
-                      fill="#ca8a04" 
-                    />
-                  )}
+                  <Bar dataKey="avgPressure" fill={lineColors[0]} name="Avg Max Pressure" />
+                  <Bar dataKey="stdDev" fill={lineColors[1]} name="Standard Deviation" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </TabsContent>
           
-          <TabsContent value="cycles" className="space-y-4">
-            <div className="h-[400px]">
+          <TabsContent value="bars" className="mt-0">
+            <h3 className="text-sm font-medium mb-2">Min/Max Pressure Comparison</h3>
+            <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={comparisonData.cycleComparison}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                >
+                <BarChart data={summaryChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="cycle" label={{ value: 'Cycle', position: 'insideBottom', offset: -5 }} />
-                  <YAxis label={{ value: 'Max Pressure (psi)', angle: -90, position: 'insideLeft' }} />
-                  <Tooltip 
-                    formatter={(value, name, props) => {
-                      if (name === "maxPressure") return [`${value} psi`, "Max Pressure"];
-                      return [value, name];
-                    }}
-                    labelFormatter={(value) => `Cycle ${value}`}
-                  />
+                  <XAxis dataKey="unit" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => [parseFloat(value as string).toFixed(3), 'Pressure (psi)']} />
                   <Legend />
-                  {Object.keys(unitData).map((unit, index) => (
-                    <Line
+                  <Bar dataKey="minPressure" fill={lineColors[2]} name="Min Pressure" />
+                  <Bar dataKey="avgPressure" fill={lineColors[0]} name="Avg Pressure" />
+                  <Bar dataKey="maxPressure" fill={lineColors[3]} name="Max Pressure" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="lines" className="mt-0">
+            <h3 className="text-sm font-medium mb-2">Pressure Trend Across Cycles</h3>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={cycleChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="cycle" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => [parseFloat(value as string).toFixed(3), 'Pressure (psi)']} />
+                  <Legend />
+                  {Object.keys(unitStats).map((unit, index) => (
+                    <Line 
                       key={unit}
-                      type="monotone"
-                      dataKey="maxPressure"
-                      data={comparisonData.cycleComparison.filter(item => item.unit === unit)}
+                      type="monotone" 
+                      dataKey="pressure" 
+                      data={cycleChartData.filter(d => d.unit === unit)}
                       name={unit}
-                      stroke={["#2563eb", "#dc2626", "#16a34a", "#ca8a04"][index % 4]}
+                      stroke={lineColors[index % lineColors.length]} 
                       activeDot={{ r: 8 }}
+                      connectNulls
                     />
                   ))}
                 </LineChart>
@@ -314,52 +224,35 @@ export const UnitComparisonAnalysis = ({ results, unitSelections }: UnitComparis
             </div>
           </TabsContent>
           
-          <TabsContent value="statistics" className="space-y-4">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2">Unit</th>
-                    <th className="text-left p-2">Metric</th>
-                    <th className="text-left p-2">Min</th>
-                    <th className="text-left p-2">Max</th>
-                    <th className="text-left p-2">Average</th>
-                    <th className="text-left p-2">Std Dev</th>
-                    <th className="text-left p-2">Cycles</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(statistics).flatMap(([unit, stats]) => [
-                    <tr key={`${unit}-pressure`} className="border-b hover:bg-muted/50">
-                      <td className="p-2 font-medium">{unit}</td>
-                      <td className="p-2">Max Pressure (psi)</td>
-                      <td className="p-2">{stats.maxPressure.min}</td>
-                      <td className="p-2">{stats.maxPressure.max}</td>
-                      <td className="p-2">{stats.maxPressure.avg}</td>
-                      <td className="p-2">{stats.maxPressure.stdDev}</td>
-                      <td className="p-2">{stats.cycleCount}</td>
-                    </tr>,
-                    <tr key={`${unit}-duration`} className="border-b hover:bg-muted/50">
-                      <td className="p-2 font-medium">{unit}</td>
-                      <td className="p-2">Duration (ms)</td>
-                      <td className="p-2">{stats.duration.min}</td>
-                      <td className="p-2">{stats.duration.max}</td>
-                      <td className="p-2">{stats.duration.avg}</td>
-                      <td className="p-2">{stats.duration.stdDev}</td>
-                      <td className="p-2">{stats.cycleCount}</td>
-                    </tr>,
-                    <tr key={`${unit}-readings`} className="border-b hover:bg-muted/50">
-                      <td className="p-2 font-medium">{unit}</td>
-                      <td className="p-2">Pressure Readings</td>
-                      <td className="p-2">{stats.readings.min}</td>
-                      <td className="p-2">{stats.readings.max}</td>
-                      <td className="p-2">{stats.readings.avg}</td>
-                      <td className="p-2">{stats.readings.stdDev}</td>
-                      <td className="p-2">{stats.cycleCount}</td>
-                    </tr>
-                  ])}
-                </tbody>
-              </table>
+          <TabsContent value="stats" className="mt-0">
+            <h3 className="text-sm font-medium mb-2">Statistical Comparison</h3>
+            <div className="rounded-md border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Unit</TableHead>
+                    <TableHead>Avg Max Pressure</TableHead>
+                    <TableHead>Min Max Pressure</TableHead>
+                    <TableHead>Max Max Pressure</TableHead>
+                    <TableHead>StdDev</TableHead>
+                    <TableHead>Avg Duration</TableHead>
+                    <TableHead>Tests</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(unitStats).map(([unit, stats]) => (
+                    <TableRow key={unit}>
+                      <TableCell className="font-medium">{unit}</TableCell>
+                      <TableCell>{stats.avgMaxPressure.toFixed(3)}</TableCell>
+                      <TableCell>{stats.minMaxPressure.toFixed(3)}</TableCell>
+                      <TableCell>{stats.maxMaxPressure.toFixed(3)}</TableCell>
+                      <TableCell>{stats.stdDevMaxPressure.toFixed(3)}</TableCell>
+                      <TableCell>{stats.avgDuration.toFixed(0)} ms</TableCell>
+                      <TableCell>{stats.files.length}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           </TabsContent>
         </Tabs>
