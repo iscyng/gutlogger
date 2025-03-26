@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PeakPressureChart } from "@/components/charts/PeakPressureChart";
 import { OverlayChart } from "@/components/charts/OverlayChart";
 import { ResultsTable } from "@/components/tables/ResultsTable";
+import { UnitComparisonAnalysis } from "@/components/UnitComparisonAnalysis";
 import { getPressureReadings, type AnalysisResult } from '@/utils/chartUtils';
 
 interface ResultsDisplayProps {
@@ -141,6 +142,11 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
         isLoading={isLoading}
         onUnitChange={handleUnitChange}
         onToggleFileSelection={toggleFileSelection}
+      />
+
+      <UnitComparisonAnalysis 
+        results={results}
+        unitSelections={unitSelections}
       />
     </div>
   );
