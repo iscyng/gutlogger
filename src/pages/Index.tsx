@@ -6,11 +6,13 @@ import { FileList } from '@/components/FileList';
 import { AdditionalAnalysis } from '@/components/AdditionalAnalysis';
 import { Card } from "@/components/ui/card";
 import { CleaningCycleChart } from "@/components/charts/CleaningCycleChart";
-import { extractCleaningCycleData } from "@/utils/logParser";
+import { extractCleaningCycleData, extractSamplePushData } from "@/utils/logParser";
 import { CleaningCycleResultsDisplay } from '@/components/CleaningCycleResultsDisplay';
 import { Download } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { Button } from "@/components/ui/button";
+import type { CleaningCycleData, SamplePushData } from "@/utils/logParser";
+import { SamplePushResultsDisplay } from '@/components/SamplePushResultsDisplay';
 
 interface AnalysisResult {
   file_name: string;
@@ -25,6 +27,7 @@ interface AnalysisResult {
   temperatures: string[]; // Store temperature readings
   system_events: string[]; // Store system events
   cleaningCycleData?: CleaningCycleData | null;
+  samplePushData?: SamplePushData | null;
 }
 
 const Index = () => {
@@ -60,6 +63,7 @@ const Index = () => {
     const temperatures: string[] = [];
     const system_events: string[] = [];
     const cleaningCycleData = extractCleaningCycleData(content);
+    const samplePushData = extractSamplePushData(content);
 
     for (const line of lines) {
       // Store settings
@@ -131,7 +135,8 @@ const Index = () => {
       battery_info,
       temperatures,
       system_events,
-      cleaningCycleData
+      cleaningCycleData,
+      samplePushData,
     };
   };
 
@@ -280,6 +285,12 @@ const Index = () => {
               <Card className="p-6 animate-results-appear">
                 <ResultsDisplay results={results} />
               </Card>
+              {/* Sample Push Panel */}
+              {results.some(r=>r.samplePushData) && (
+                <Card className="p-6 animate-results-appear mt-8">
+                  <SamplePushResultsDisplay results={results.filter(r=>r.samplePushData)} />
+                </Card>
+              )}
               {/* Cleaning Cycle Panel */}
               {results.some(r => r.cleaningCycleData) && (
                 <Card className="p-6 animate-results-appear mt-8">

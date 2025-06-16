@@ -115,3 +115,56 @@ export const extractCleaningCycleData = (rawContent: string): CleaningCycleData 
     timestamps
   };
 };
+
+export interface SamplePushData {
+  startTime: string;
+  endTime: string;
+  pressureReadings: number[];
+  timestamps: string[];
+}
+
+export const extractSamplePushData = (rawContent: string): SamplePushData | null => {
+  const lines = rawContent.split('\n');
+  let startTime: string | null = null;
+  let endTime: string | null = null;
+  const pressureReadings: number[] = [];
+  const timestamps: string[] = [];
+  let measuring = false;
+
+  for (const line of lines) {
+    const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '').trim();
+
+    // Start marker
+    if (cleanLine.includes('Bubble Sensor First: Waiting to trigger with sample')) {
+      const timeMatch = cleanLine.match(/\((.*?)_CDT\)/);
+      if (timeMatch) {
+        startTime = timeMatch[1];
+      }
+      measuring = true;
+      continue;
+    }
+
+    // End marker
+    if (measuring && cleanLine.includes('Bubble Sensor First: Triggered!')) {
+      const timeMatch = cleanLine.match(/\((.*?)_CDT\)/);
+      if (timeMatch) {
+        endTime = timeMatch[1];
+      }
+      measuring = false;
+      break; // Stop after trigger
+    }
+
+    if (measuring) {
+      const pressureMatch = cleanLine.match(/(\d+\.\d+)psi/);
+      const timeMatch = cleanLine.match(/\((.*?)_CDT\)/);
+      if (pressureMatch && timeMatch) {
+        pressureReadings.push(parseFloat(pressureMatch[1]));
+        timestamps.push(timeMatch[1]);
+      }
+    }
+  }
+
+  if (!startTime || !endTime || pressureReadings.length === 0) return null;
+
+  return { startTime, endTime, pressureReadings, timestamps };
+};

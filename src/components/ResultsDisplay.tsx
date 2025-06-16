@@ -12,10 +12,7 @@ import {
 } from "@/components/ui/select";
 import { saveUnitSelection, getUnitSelection } from '@/stores/unitSelections';
 import { useToast } from "@/hooks/use-toast";
-import { PeakPressureChart } from "@/components/charts/PeakPressureChart";
 import { OverlayChart } from "@/components/charts/OverlayChart";
-import { ResultsTable } from "@/components/tables/ResultsTable";
-import { UnitComparisonAnalysis } from "@/components/UnitComparisonAnalysis";
 import { getPressureReadings, type AnalysisResult } from '@/utils/chartUtils';
 
 interface ResultsDisplayProps {
@@ -23,7 +20,7 @@ interface ResultsDisplayProps {
 }
 
 export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
-  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set(results.map(r => r.file_name)));
   const [unitSelections, setUnitSelections] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -56,6 +53,11 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
 
     loadUnitSelections();
   }, [results, toast]);
+
+  useEffect(() => {
+    // When new results come in, select all files by default
+    setSelectedFiles(new Set(results.map(r => r.file_name)));
+  }, [results]);
 
   const handleUnitChange = async (fileName: string, unit: string) => {
     try {
@@ -123,26 +125,10 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Sample Push Pressure</h2>
+        <h2 className="text-lg font-semibold">Full Cycle Pressure</h2>
       </div>
 
-      <PeakPressureChart results={results} />
-
       <OverlayChart selectedFiles={selectedFiles} results={results} />
-
-      <ResultsTable 
-        results={results}
-        selectedFiles={selectedFiles}
-        unitSelections={unitSelections}
-        isLoading={isLoading}
-        onUnitChange={handleUnitChange}
-        onToggleFileSelection={toggleFileSelection}
-      />
-
-      <UnitComparisonAnalysis 
-        results={results}
-        unitSelections={unitSelections}
-      />
     </div>
   );
 };
