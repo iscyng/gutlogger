@@ -48,3 +48,29 @@ Build the production bundle:
 npm run build
 ```
 The static files will be in `dist/`.
+
+## Architecture diagram
+
+```mermaid
+graph TD
+  subgraph "Frontend – React & Vite"
+    UI["FileUploader / FileList\n(user selects .log files)"]
+    Parser["logParser.ts\n• extractSamplePushData\n• extractCleaningCycleData\n• extractEvents"]
+    Charts["Analysis Panels\n— Full-Cycle Pressure\n— Sample-Push Pressure\n— Cleaning-Cycle Pressure"]
+    Export["Excel Export (xlsx)"]
+    UI --> Parser
+    Parser --> Charts
+    Charts --> Export
+  end
+
+  subgraph "Supabase Edge Functions"
+    Fn1["analyze-logs (Groq AI)"]
+    Fn2["analyze-additional-logs"]
+  end
+
+  Charts -- "invoke (optional)" --> Fn1
+  Charts -- "invoke" --> Fn2
+  Fn1 -- "AI answer" --> Charts
+  Fn2 -- "stats JSON" --> Charts
+  Export --> XLSX["gutlogger_analysis.xlsx"]
+```
