@@ -1,12 +1,16 @@
-
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { FileUploader } from '@/components/FileUploader';
 import { ResultsDisplay } from '@/components/ResultsDisplay';
 import { FileList } from '@/components/FileList';
-import { LogAnalysisChat } from '@/components/LogAnalysisChat';
 import { AdditionalAnalysis } from '@/components/AdditionalAnalysis';
 import { Card } from "@/components/ui/card";
+import { CleaningCycleChart } from "@/components/charts/CleaningCycleChart";
+import { extractCleaningCycleData } from "@/utils/logParser";
+import { CleaningCycleResultsDisplay } from '@/components/CleaningCycleResultsDisplay';
+import { Download } from "lucide-react";
+import * as XLSX from 'xlsx';
+import { Button } from "@/components/ui/button";
 
 interface AnalysisResult {
   file_name: string;
@@ -20,6 +24,7 @@ interface AnalysisResult {
   battery_info: Record<string, string>; // Store battery information
   temperatures: string[]; // Store temperature readings
   system_events: string[]; // Store system events
+  cleaningCycleData?: CleaningCycleData | null;
 }
 
 const Index = () => {
@@ -54,6 +59,7 @@ const Index = () => {
     const battery_info: Record<string, string> = {};
     const temperatures: string[] = [];
     const system_events: string[] = [];
+    const cleaningCycleData = extractCleaningCycleData(content);
 
     for (const line of lines) {
       // Store settings
@@ -124,7 +130,8 @@ const Index = () => {
       settings,
       battery_info,
       temperatures,
-      system_events
+      system_events,
+      cleaningCycleData
     };
   };
 
@@ -162,12 +169,94 @@ const Index = () => {
     }
   };
 
+  // Export both sample push and cleaning cycle readings
+  const handleExportAll = () => {
+    console.log('Exporting results:', results);
+    const wb = XLSX.utils.book_new();
+    // Sample Push Summary
+    const samplePushData = results.map(r => ({
+      'File Name': r.file_name,
+      'Pressure Readings': r.pressure_readings,
+      'Duration (ms)': r.duration_ms,
+      'Max Pressure': r.max_pressure
+    }));
+    // Cleaning Cycle Summary
+    const cleaningCycleResults = results.filter(r => r.cleaningCycleData && r.cleaningCycleData.pressureReadings.length > 0);
+    const cleaningCycleData = cleaningCycleResults.map(r => ({
+      'File Name': r.file_name,
+      'Pressure Readings': r.cleaningCycleData?.pressureReadings.length || 0,
+      'Duration (ms)': (r.cleaningCycleData?.pressureReadings.length || 0) * 50,
+      'Max Pressure': r.cleaningCycleData ? Math.max(...r.cleaningCycleData.pressureReadings).toFixed(3) : '0.000'
+    }));
+    console.log('Sample Push Data:', samplePushData);
+    console.log('Cleaning Cycle Data:', cleaningCycleData);
+    // Build Summary sheet with two tables
+    const summarySheet = XLSX.utils.aoa_to_sheet([['Sample Push Pressure']]);
+    // Add Sample Push table starting at row 2
+    XLSX.utils.sheet_add_json(summarySheet, samplePushData, {
+      origin: 'A2',
+      header: ['File Name', 'Pressure Readings', 'Duration (ms)', 'Max Pressure']
+    });
+
+    // Determine starting row for cleaning cycle table
+    const startRowCleaning = samplePushData.length + 4; // title row + header row + data + one blank
+    XLSX.utils.sheet_add_aoa(summarySheet, [['Cleaning Cycle Pressure']], { origin: `A${startRowCleaning}` });
+    XLSX.utils.sheet_add_json(summarySheet, cleaningCycleData, {
+      origin: `A${startRowCleaning + 1}`,
+      header: ['File Name', 'Pressure Readings', 'Duration (ms)', 'Max Pressure']
+    });
+
+    XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+    // Add individual sheets for sample push
+    samplePushData.forEach(row => {
+      const result = results.find(r => r.file_name === row['File Name']);
+      if (result && result.raw_content) {
+        const readings = result.raw_content.split('\n').map((line, i) => {
+          const match = line.match(/(\d+\.\d+)psi/);
+          return match ? { 'Time (ms)': i * 50, 'Pressure (psi)': parseFloat(match[1]) } : null;
+        }).filter(Boolean);
+        if (readings.length) {
+          const sheetName = safeSheetName(result.file_name, '_SamplePush');
+          const dataSheet = XLSX.utils.json_to_sheet(readings);
+          XLSX.utils.book_append_sheet(wb, dataSheet, sheetName);
+        }
+      }
+    });
+    // Add individual sheets for cleaning cycles
+    cleaningCycleResults.forEach(result => {
+      if (result.cleaningCycleData) {
+        const readingsData = result.cleaningCycleData.pressureReadings.map((pressure, i) => ({
+          'Time (ms)': i * 50,
+          'Pressure (psi)': pressure
+        }));
+        const sheetName = safeSheetName(result.file_name, '_CleaningCycle');
+        const dataSheet = XLSX.utils.json_to_sheet(readingsData);
+        XLSX.utils.book_append_sheet(wb, dataSheet, sheetName);
+      }
+    });
+    XLSX.writeFile(wb, 'gutlogger_analysis.xlsx');
+  };
+
+  // helper to generate safe sheet names (<=31 chars)
+  const safeSheetName = (fileName: string, suffix: string) => {
+    const base = fileName.replace(/\.[^/.]+$/, ''); // remove extension
+    const maxBaseLen = 31 - suffix.length;
+    const trimmed = base.length > maxBaseLen ? base.slice(0, maxBaseLen) : base;
+    return `${trimmed}${suffix}`;
+  };
+
   return (
     <div className="min-h-screen bg-background p-6 space-y-8">
       <div className="max-w-5xl mx-auto space-y-8">
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold tracking-tight">GutLogger</h1>
           <p className="text-muted-foreground">Upload your log files to analyze data</p>
+          <div className="flex justify-end max-w-5xl mx-auto mt-4">
+            <Button onClick={handleExportAll} variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Export Excel
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6">
@@ -191,8 +280,13 @@ const Index = () => {
               <Card className="p-6 animate-results-appear">
                 <ResultsDisplay results={results} />
               </Card>
+              {/* Cleaning Cycle Panel */}
+              {results.some(r => r.cleaningCycleData) && (
+                <Card className="p-6 animate-results-appear mt-8">
+                  <CleaningCycleResultsDisplay results={results.filter(r => r.cleaningCycleData)} />
+                </Card>
+              )}
               <AdditionalAnalysis results={results} autoAnalyze={true} />
-              <LogAnalysisChat results={results} />
             </>
           )}
         </div>

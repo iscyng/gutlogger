@@ -123,11 +123,7 @@ export const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Analysis Results</h2>
-        <Button onClick={handleExport} variant="outline">
-          <Download className="mr-2 h-4 w-4" />
-          Export Excel
-        </Button>
+        <h2 className="text-lg font-semibold">Sample Push Pressure</h2>
       </div>
 
       <PeakPressureChart results={results} />

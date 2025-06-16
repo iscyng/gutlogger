@@ -1,4 +1,3 @@
-
 interface LogEvent {
   time: number;
   event: string;
@@ -53,4 +52,66 @@ export const extractEvents = (rawContent: string): LogEvent[] => {
   });
 
   return events;
+};
+
+export interface CleaningCycleData {
+  startTime: string;
+  endTime: string;
+  pressureReadings: number[];
+  timestamps: string[];
+}
+
+export const extractCleaningCycleData = (rawContent: string): CleaningCycleData | null => {
+  const lines = rawContent.split('\n');
+  let startTime: string | null = null;
+  let endTime: string | null = null;
+  const pressureReadings: number[] = [];
+  const timestamps: string[] = [];
+  let isCleaningCycle = false;
+
+  for (const line of lines) {
+    // Clean the line first (remove ANSI escape sequences)
+    const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '').trim();
+    
+    // Look for the start of cleaning cycle
+    if (cleanLine.includes('Bubble Sensor Second: Waiting to trigger with sample')) {
+      const timeMatch = cleanLine.match(/\((.*?)_CDT\)/);
+      if (timeMatch) {
+        startTime = timeMatch[1];
+        isCleaningCycle = true;
+      }
+      continue;
+    }
+
+    // Look for the end of cleaning cycle
+    if (isCleaningCycle && cleanLine.includes('Bubble Sensor Second: Triggered!')) {
+      const timeMatch = cleanLine.match(/\((.*?)_CDT\)/);
+      if (timeMatch) {
+        endTime = timeMatch[1];
+        isCleaningCycle = false;
+      }
+      continue;
+    }
+
+    // Collect pressure readings during cleaning cycle
+    if (isCleaningCycle) {
+      const pressureMatch = cleanLine.match(/(\d+\.\d+)psi/);
+      const timeMatch = cleanLine.match(/\((.*?)_CDT\)/);
+      if (pressureMatch && timeMatch) {
+        pressureReadings.push(parseFloat(pressureMatch[1]));
+        timestamps.push(timeMatch[1]);
+      }
+    }
+  }
+
+  if (!startTime || !endTime || pressureReadings.length === 0) {
+    return null;
+  }
+
+  return {
+    startTime,
+    endTime,
+    pressureReadings,
+    timestamps
+  };
 };
