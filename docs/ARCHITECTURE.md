@@ -12,14 +12,11 @@ graph TD
     Charts --> Export
   end
 
-  subgraph "Supabase Edge Functions"
-    Fn1["analyze-logs (Groq AI)"]
+  subgraph "Supabase Edge Function"
     Fn2["analyze-additional-logs"]
   end
 
-  Charts -- "invoke (optional)" --> Fn1
-  Charts -- "invoke" --> Fn2
-  Fn1 -- "AI answer" --> Charts
+  Charts --> Fn2
   Fn2 -- "stats JSON" --> Charts
   Export --> XLSX["gutlogger_analysis.xlsx"]
 ```
