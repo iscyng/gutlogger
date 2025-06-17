@@ -6,13 +6,14 @@ import { FileList } from '@/components/FileList';
 import { AdditionalAnalysis } from '@/components/AdditionalAnalysis';
 import { Card } from "@/components/ui/card";
 import { CleaningCycleChart } from "@/components/charts/CleaningCycleChart";
-import { extractCleaningCycleData, extractSamplePushData } from "@/utils/logParser";
+import { extractCleaningCycleData, extractSamplePushData, extractWellPressureData } from "@/utils/logParser";
 import { CleaningCycleResultsDisplay } from '@/components/CleaningCycleResultsDisplay';
 import { Download } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { Button } from "@/components/ui/button";
-import type { CleaningCycleData, SamplePushData } from "@/utils/logParser";
+import type { CleaningCycleData, SamplePushData, WellPressureData } from "@/utils/logParser";
 import { SamplePushResultsDisplay } from '@/components/SamplePushResultsDisplay';
+import { WellPressureResultsDisplay } from '@/components/WellPressureResultsDisplay';
 
 interface AnalysisResult {
   file_name: string;
@@ -28,6 +29,7 @@ interface AnalysisResult {
   system_events: string[]; // Store system events
   cleaningCycleData?: CleaningCycleData | null;
   samplePushData?: SamplePushData | null;
+  wellPressureData?: WellPressureData | null;
 }
 
 const Index = () => {
@@ -64,6 +66,7 @@ const Index = () => {
     const system_events: string[] = [];
     const cleaningCycleData = extractCleaningCycleData(content);
     const samplePushData = extractSamplePushData(content);
+    const wellPressureData = extractWellPressureData(content);
 
     for (const line of lines) {
       // Store settings
@@ -137,6 +140,7 @@ const Index = () => {
       system_events,
       cleaningCycleData,
       samplePushData,
+      wellPressureData,
     };
   };
 
@@ -289,6 +293,12 @@ const Index = () => {
               {results.some(r=>r.samplePushData) && (
                 <Card className="p-6 animate-results-appear mt-8">
                   <SamplePushResultsDisplay results={results.filter(r=>r.samplePushData)} />
+                </Card>
+              )}
+              {/* Well Pressure Panel */}
+              {results.some(r => r.wellPressureData) && (
+                <Card className="p-6 animate-results-appear mt-8">
+                  <WellPressureResultsDisplay results={results.filter(r => r.wellPressureData)} />
                 </Card>
               )}
               {/* Cleaning Cycle Panel */}

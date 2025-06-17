@@ -168,3 +168,52 @@ export const extractSamplePushData = (rawContent: string): SamplePushData | null
 
   return { startTime, endTime, pressureReadings, timestamps };
 };
+
+export interface WellPressureData {
+  status: string;
+  pressure: number;
+  timestamp: string;
+}
+
+export const extractWellPressureData = (rawContent: string): WellPressureData | null => {
+  const lines = rawContent.split('\n');
+  let status = '';
+  let pressure = 0;
+  let timestamp = '';
+
+  for (const line of lines) {
+    const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '').trim();
+
+    // Look for well pressure status
+    if (cleanLine.includes('MPCLogs: Well Pressure')) {
+      const timeMatch = cleanLine.match(/\((.*?)_CDT\)/);
+      if (timeMatch) {
+        timestamp = timeMatch[1];
+      }
+      
+      if (cleanLine.includes('Well Pressure OK')) {
+        status = 'OK';
+      } else if (cleanLine.includes('Well Pressure')) {
+        // Extract any other status if needed
+        const statusMatch = cleanLine.match(/Well Pressure (.+?)$/);
+        if (statusMatch) {
+          status = statusMatch[1];
+        }
+      }
+      continue;
+    }
+
+    // Look for well pressure value on the next line or nearby lines
+    if (cleanLine.includes('MPCLogs:') && cleanLine.includes('psi') && timestamp) {
+      const pressureMatch = cleanLine.match(/(\d+\.\d+)psi/);
+      if (pressureMatch) {
+        pressure = parseFloat(pressureMatch[1]);
+        break; // Found both status and pressure
+      }
+    }
+  }
+
+  if (!status || !timestamp) return null;
+
+  return { status, pressure, timestamp };
+};
